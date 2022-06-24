@@ -35,7 +35,7 @@ public class TreeItem : NodeItem
     public bool Checked { get; set; }
 
     /// <summary>
-    /// 获取/设置 是否有子节点 默认 false 
+    /// 获取/设置 是否有子节点 默认 false
     /// </summary>
     public bool HasChildNode { get; set; }
 
@@ -43,6 +43,11 @@ public class TreeItem : NodeItem
     /// 获取/设置 节点样色样式 默认 null 未设置
     /// </summary>
     public string? CssClass { get; set; }
+
+    /// <summary>
+    /// 是否可以拖拽
+    /// </summary>
+    public bool CanDrag { get; set; } = false;
 
     /// <summary>
     /// 获得 所有子项集合

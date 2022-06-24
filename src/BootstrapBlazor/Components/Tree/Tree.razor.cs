@@ -2,6 +2,8 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 // Website: https://www.blazor.zone or https://argozhang.github.io/
 
+using Microsoft.AspNetCore.Components.Rendering;
+
 namespace BootstrapBlazor.Components;
 
 /// <summary>
@@ -16,6 +18,11 @@ public partial class Tree
 
     [NotNull]
     private string? GroupName { get; set; }
+
+    /// <summary>
+    /// 是否允许拖拽，默认不允许
+    /// </summary>
+    [Parameter] public bool CanDrag { get; set; } = false;
 
     /// <summary>
     /// 获得 按钮样式集合
@@ -275,4 +282,74 @@ public partial class Tree
     {
         return item.Checked ? CheckboxState.Checked : CheckboxState.UnChecked;
     }
+
+    private TreeItem? DragItem { get; set; }
+    private TreeItem? DragoverItem { get; set; }
+
+    private async Task OnDragStart(TreeItem item)
+    {
+        // 如果展开了就先收缩起来，防止放在自己的子节点上
+        if (!item.IsCollapsed)
+        {
+            await OnExpandRowAsync(item);
+        }
+
+        DragItem = item;
+    }
+
+    private void OnDragEnd()
+    {
+        DragItem = null;
+    }
+
+    private void OnDragEnter(TreeItem item)
+    {
+        if (DragItem != null && !Equals(DragItem, item))
+        {
+            DragoverItem = item;
+        }
+    }
+
+    private void OnDragLeave()
+    {
+        //DragoverItem = null;
+    }
+
+    private void OnDrop()
+    {
+        if (DragItem == null || DragoverItem == null)
+        {
+            return;
+        }
+
+        if (RemoveTreeItem(Items, DragItem))
+        {
+            DragoverItem.Items.Add(DragItem);
+            StateHasChanged();
+        }
+    }
+
+    private bool RemoveTreeItem(List<TreeItem> items, TreeItem item)
+    {
+        if (items.Any(x => x == item))
+        {
+            items.Remove(item);
+            return true;
+        }
+
+        var children = items.Where(x => x.Items.Any());
+        if (children.Any())
+        {
+            foreach (var child in children)
+            {
+                if (RemoveTreeItem(child.Items, item))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
 }

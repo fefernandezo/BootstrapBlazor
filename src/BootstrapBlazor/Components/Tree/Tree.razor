@@ -16,7 +16,17 @@
 }
 else
 {
-    <div tabindex="0" role="tree" class="@ClassString" @ref="@TreeElement">
+    <div tabindex="0" role="tree" class="@ClassString" @ref="@TreeElement"
+         @ondragover:preventDefault @ondragover="() => {}"
+         @ondragenter:preventDefault @ondragenter="() => {}"
+         @ondrop:preventDefault @ondrop="@OnDrop"
+         ondragstart="event.dataTransfer.setData('text', event.target.id);"
+         @ondrop:stopPropagation
+         @ondragenter:stopPropagation
+         @ondragend:stopPropagation
+         @ondragover:stopPropagation
+         @ondragleave:stopPropagation
+         @ondragstart:stopPropagation>
         <ul class="tree-root" role="tree">
             @foreach (var item in Items)
             {
@@ -36,7 +46,14 @@ else
     </ul>;
 
 private RenderFragment<TreeItem> RenderTreeItem => item =>
-@<li role="treeitem" class="@GetItemClassString(item)">
+    @<li role="treeitem" class="@GetItemClassString(item)" draggable="@(CanDrag ? "true" : "false")"
+         @ondragstart="() => OnDragStart(item)"
+         @ondragend="@OnDragEnd"
+         @ondragenter="() => OnDragEnter(item)"
+         @ondragleave="OnDragLeave"
+         @ondragenter:stopPropagation
+         @ondragleave:stopPropagation
+         @ondragstart:stopPropagation>
     <div class="tree-content">
         <i class="@GetCaretClassString(item)" @onclick="() => OnExpandRowAsync(item)"></i>
         @if (ShowCheckbox)
@@ -62,7 +79,7 @@ private RenderFragment<TreeItem> RenderTreeItem => item =>
             }
             else
             {
-                @item.Template    
+                @item.Template
             }
         </div>
     </div>

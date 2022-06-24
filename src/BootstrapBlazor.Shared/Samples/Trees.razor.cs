@@ -13,7 +13,7 @@ using Microsoft.Extensions.Localization;
 namespace BootstrapBlazor.Shared.Samples;
 
 /// <summary>
-/// 
+///
 /// </summary>
 public sealed partial class Trees
 {
@@ -39,6 +39,8 @@ public sealed partial class Trees
     private List<TreeItem> ExpandItems { get; set; } = GetExpandItems();
 
     private List<TreeItem>? AsyncItems { get; set; }
+
+    private List<TreeItem>? DragItems { get; set; } = GetDragItems();
 
     /// <summary>
     /// OnInitializedAsync 方法
@@ -67,6 +69,12 @@ public sealed partial class Trees
     {
         var ret = TreeDataFoo.GetTreeItems();
         ret[1].IsCollapsed = false;
+        return ret;
+    }
+
+    private static List<TreeItem> GetDragItems()
+    {
+        var ret = TreeDataFoo.GetTreeItems();
         return ret;
     }
 
@@ -117,7 +125,7 @@ public sealed partial class Trees
         private ToastService? ToastService { get; set; }
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         /// <param name="builder"></param>
         protected override void BuildRenderTree(RenderTreeBuilder builder)
