@@ -63,7 +63,7 @@ public partial class Tree
     /// <param name="item"></param>
     /// <returns></returns>
     private string? GetItemClassString(TreeItem item) => CssBuilder.Default("tree-item")
-        .AddClass("active", ActiveItem == item)
+        .AddClass("active", ActiveItem == item || DragoverItem == item)
         .Build();
 
     /// <summary>
@@ -283,8 +283,25 @@ public partial class Tree
         return item.Checked ? CheckboxState.Checked : CheckboxState.UnChecked;
     }
 
+    /// <summary>
+    /// 拖动的Item
+    /// </summary>
     private TreeItem? DragItem { get; set; }
+
+    /// <summary>
+    /// 拖拽到的Item
+    /// </summary>
     private TreeItem? DragoverItem { get; set; }
+
+    /// <summary>
+    /// 是否在上面
+    /// </summary>
+    private bool IsUp { get; set; } = false;
+
+    /// <summary>
+    /// 拖拽到空位上
+    /// </summary>
+    public TreeItem? DragSpace { get; set; }
 
     private async Task OnDragStart(TreeItem item)
     {
@@ -312,21 +329,74 @@ public partial class Tree
 
     private void OnDragLeave()
     {
-        //DragoverItem = null;
+        DragoverItem = null;
     }
 
     private void OnDrop()
     {
-        if (DragItem == null || DragoverItem == null)
+        if (DragItem == null)
         {
             return;
         }
-
-        if (RemoveTreeItem(Items, DragItem))
+        if (DragoverItem != null)
         {
-            DragoverItem.Items.Add(DragItem);
-            StateHasChanged();
+            if (RemoveTreeItem(Items, DragItem))
+            {
+                DragoverItem.Items.Add(DragItem);
+                StateHasChanged();
+            }
+
+            DragoverItem = null;
+            DragItem = null;
+            return;
         }
+
+        if (DragSpace != null)
+        {
+            var ret = GetItemIndex(Items, DragSpace);
+            if (ret != null)
+            {
+                var index = IsUp ? ret.Value.index : ret.Value.index + 1;
+                // 处理拖动节点与释放在同一个List上的BUG
+                if (ret.Value.items.Contains(DragItem))
+                {
+                    var oldIndex = ret.Value.items.IndexOf(DragItem);
+                    if (oldIndex <= index)
+                    {
+                        index--;
+                    }
+                }
+                if (RemoveTreeItem(Items, DragItem))
+                {
+                    ret.Value.items.Insert(index, DragItem);
+                    DragSpace = null;
+                    DragItem = null;
+                }
+
+            }
+        }
+    }
+
+    private (List<TreeItem> items, int index)? GetItemIndex(List<TreeItem> items, TreeItem item)
+    {
+        var index = items.IndexOf(item);
+        if (index >= 0)
+        {
+            return (items, index);
+        }
+        var children = items.Where(x => x.Items.Any());
+        if (children.Any())
+        {
+            foreach (var child in children)
+            {
+                var ret = GetItemIndex(child.Items, item);
+                if (ret != null)
+                {
+                    return ret;
+                }
+            }
+        }
+        return null;
     }
 
     private bool RemoveTreeItem(List<TreeItem> items, TreeItem item)
@@ -352,4 +422,15 @@ public partial class Tree
         return false;
     }
 
+    private void OnDragSpaceEnter(TreeItem item, bool isUp)
+    {
+        if (DragItem == item)
+        {
+            return;
+        }
+
+        IsUp = isUp;
+        DragSpace = item;
+        StateHasChanged();
+    }
 }

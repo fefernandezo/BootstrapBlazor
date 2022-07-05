@@ -47,7 +47,7 @@ public class TreeItem : NodeItem
     /// <summary>
     /// 是否可以拖拽
     /// </summary>
-    public bool CanDrag { get; set; } = false;
+    public bool CanDrag { get; set; } = true;
 
     /// <summary>
     /// 获得 所有子项集合

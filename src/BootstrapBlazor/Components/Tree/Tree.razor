@@ -46,52 +46,65 @@ else
     </ul>;
 
 private RenderFragment<TreeItem> RenderTreeItem => item =>
-    @<li role="treeitem" class="@GetItemClassString(item)" draggable="@(CanDrag ? "true" : "false")"
-         @ondragstart="() => OnDragStart(item)"
-         @ondragend="@OnDragEnd"
-         @ondragenter="() => OnDragEnter(item)"
-         @ondragleave="OnDragLeave"
-         @ondragenter:stopPropagation
-         @ondragleave:stopPropagation
-         @ondragstart:stopPropagation>
-    <div class="tree-content">
-        <i class="@GetCaretClassString(item)" @onclick="() => OnExpandRowAsync(item)"></i>
-        @if (ShowCheckbox)
-        {
-            <Checkbox @bind-Value="@item.Checked" IsDisabled="@item.IsDisabled" SkipValidate="true"
-                      ShowLabel="false" ShowAfterLabel="false"
-                      OnStateChanged="(state, v) => OnStateChanged(state, item)" />
-        }
-        else if (ShowRadio)
-        {
-            <Radio @bind-Value="@item.Checked" IsDisabled="@item.IsDisabled" SkipValidate="true"
-                   ShowLabel="false" ShowAfterLabel="false" GroupName="@GroupName"
-                   OnClick="p => OnRadioClick(item)" State="@Tree.CheckState(item)" />
-        }
-        <div class="tree-node" @onclick="() => OnClick(item)">
-            @if (ShowIcon)
+    @<li role="treeitem" class="@GetItemClassString(item)" >
+        <div class="tree-space" @ondragenter="() => OnDragSpaceEnter(item, true)" @ondragleave="() => { DragSpace = null; }"
+             @ondragleave:stopPropagation>
+            @if (DragSpace == item && IsUp)
             {
-                <i class="@GetIconClassString(item)"></i>
-            }
-            @if (item.Template == null)
-            {
-                <span class="@item.CssClass">@item.Text</span>
-            }
-            else
-            {
-                @item.Template
+                <i class="fa fa-arrow-right"></i>
             }
         </div>
-    </div>
-    @if (item.ShowLoading)
-    {
-        <ul class="tree-ul show">
-            <Spinner Size="Size.Small" Color="Color.Primary" />
-        </ul>
-    }
-    else if (item.Items.Any())
-    {
-        @RenderTreeNode(item)
-    }
-</li>;
+        <div class="tree-content" draggable="@(CanDrag && item.CanDrag ? "true" : "false")"
+             @ondragstart="() => OnDragStart(item)"
+             @ondragend="@OnDragEnd"
+             @ondragenter="() => OnDragEnter(item)"
+             @ondragleave="OnDragLeave"
+             @ondragleave:stopPropagation
+             @ondragstart:stopPropagation>
+            <i class="@GetCaretClassString(item)" @onclick="() => OnExpandRowAsync(item)"></i>
+            @if (ShowCheckbox)
+            {
+                <Checkbox @bind-Value="@item.Checked" IsDisabled="@item.IsDisabled" SkipValidate="true"
+                          ShowLabel="false" ShowAfterLabel="false"
+                          OnStateChanged="(state, v) => OnStateChanged(state, item)"/>
+            }
+            else if (ShowRadio)
+            {
+                <Radio @bind-Value="@item.Checked" IsDisabled="@item.IsDisabled" SkipValidate="true"
+                       ShowLabel="false" ShowAfterLabel="false" GroupName="@GroupName"
+                       OnClick="p => OnRadioClick(item)" State="@Tree.CheckState(item)"/>
+            }
+            <div class="tree-node" @onclick="() => OnClick(item)">
+                @if (ShowIcon)
+                {
+                    <i class="@GetIconClassString(item)"></i>
+                }
+                @if (item.Template == null)
+                {
+                    <span class="@item.CssClass">@item.Text</span>
+                }
+                else
+                {
+                    @item.Template
+                }
+            </div>
+        </div>
+        <div class="tree-space" @ondragenter="() => OnDragSpaceEnter(item, false)" @ondragleave="() => { DragSpace = null; }"
+               @ondragleave:stopPropagation>
+              @if (DragSpace == item && !IsUp)
+              {
+                  <i class="fa fa-arrow-right"></i>
+              }
+                </div>
+        @if (item.ShowLoading)
+        {
+            <ul class="tree-ul show">
+                <Spinner Size="Size.Small" Color="Color.Primary"/>
+            </ul>
+        }
+        else if (item.Items.Any())
+        {
+            @RenderTreeNode(item)
+        }
+    </li>;
 }

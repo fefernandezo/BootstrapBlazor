@@ -277,4 +277,42 @@ public class TreeTest : BootstrapBlazorTestBase
             pb.Add(a => a.ShowSkeleton, false);
         });
     }
+
+    [Fact]
+    public async Task Drag_Ok()
+    {
+        var cut = Context.RenderComponent<Tree>(pb =>
+        {
+            pb.Add(a => a.CanDrag, true);
+            pb.Add(a => a.Items, new List<TreeItem>()
+            {
+                new() { Text = "Test5", Icon = "fa fa-fa"},
+                new() { Text = "Test1", Icon = "fa fa-fa", Items = new List<TreeItem>()
+                {
+                    new() { Text = "Test3", Icon = "fa fa-fa"},
+                    new() { Text = "Test4", Icon = "fa fa-fa"},
+                }, IsCollapsed = false},
+                new() { Text = "Test2", Icon = "fa fa-fa", CanDrag = false}
+            });
+        });
+        var content = cut.FindAll(".tree-content")[1];
+        await cut.InvokeAsync(() => content.DragStart());
+        var test2 = cut.FindAll(".tree-content")[0];
+        await cut.InvokeAsync(() => test2.DragEnter());
+        await cut.InvokeAsync(() => test2.DragLeave());
+        var space = cut.FindAll(".tree-space");
+        await cut.InvokeAsync(() => space[0].DragEnter());
+        await cut.InvokeAsync(() => space[0].DragLeave());
+        space = cut.FindAll(".tree-space");
+        await cut.InvokeAsync(() => space[2].DragEnter());
+        await cut.InvokeAsync(() => space[2].DragLeave());
+        await cut.InvokeAsync(() => content.DragEnd());
+
+        content = cut.FindAll(".tree-content")[1];
+        await cut.InvokeAsync(() => content.DragStart());
+        test2 = cut.FindAll(".tree-content")[0];
+        await cut.InvokeAsync(() => test2.DragEnter());
+        await cut.InvokeAsync(() => content.Drop());
+    }
+
 }
