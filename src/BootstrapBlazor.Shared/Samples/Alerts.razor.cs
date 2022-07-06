@@ -116,13 +116,26 @@ public sealed partial class Alerts
     /// <returns></returns>
     private static IEnumerable<EventItem> GetEvents() => new EventItem[]
     {
-            new EventItem()
-            {
-                Name = "OnDismiss",
-                Description="关闭警告框回调方法",
-                Type ="EventCallback<MouseEventArgs>"
-            }
+        new EventItem()
+        {
+            Name = "OnDismiss",
+            Description="关闭警告框回调方法",
+            Type ="EventCallback<MouseEventArgs>"
+        }
     };
+
+    private DateTime DateTimeValue { get; set; }
+
+    private void OnGetDateTime()
+    {
+        DateTimeValue = GetDateTime();
+    }
+
+    [Cache(Key = "bb_GetDateTime")]
+    private DateTime GetDateTime()
+    {
+        return DateTime.Now;
+    }
 
     /// <summary>
     /// 获得属性方法
