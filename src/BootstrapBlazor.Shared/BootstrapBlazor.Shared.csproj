@@ -30,6 +30,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Metalama.Framework" Version="0.5.25-preview" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\BootstrapBlazor\BootstrapBlazor.csproj" />
   </ItemGroup>
 
