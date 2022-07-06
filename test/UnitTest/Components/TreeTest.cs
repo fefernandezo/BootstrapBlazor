@@ -314,6 +314,7 @@ public class TreeTest : BootstrapBlazorTestBase
         space = cut.FindAll(".tree-space");
         await cut.InvokeAsync(() => space[2].DragEnter());
         await cut.InvokeAsync(() => space[2].DragLeave());
+        content = cut.FindAll(".tree-content")[1];
         await cut.InvokeAsync(() => content.DragEnd());
 
         content = cut.FindAll(".tree-content")[1];

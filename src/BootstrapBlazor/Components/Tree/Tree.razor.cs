@@ -301,10 +301,16 @@ public partial class Tree
     /// <summary>
     /// 拖拽到空位上
     /// </summary>
-    public TreeItem? DragSpace { get; set; }
+    private TreeItem? DragSpace { get; set; }
+
+    /// <summary>
+    /// 保存拖拽时展开状态，释放时恢复
+    /// </summary>
+    private bool DragItemIsCollapsed { get; set; }
 
     private async Task OnDragStart(TreeItem item)
     {
+        DragItemIsCollapsed = item.IsCollapsed;
         // 如果展开了就先收缩起来，防止放在自己的子节点上
         if (!item.IsCollapsed)
         {
@@ -314,8 +320,9 @@ public partial class Tree
         DragItem = item;
     }
 
-    private void OnDragEnd()
+    private void OnDragEnd(TreeItem item)
     {
+        item.IsCollapsed = DragItemIsCollapsed;
         DragItem = null;
     }
 

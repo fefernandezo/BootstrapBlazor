@@ -56,7 +56,7 @@ private RenderFragment<TreeItem> RenderTreeItem => item =>
         </div>
         <div class="tree-content" draggable="@(CanDrag && item.CanDrag ? "true" : "false")"
              @ondragstart="() => OnDragStart(item)"
-             @ondragend="@OnDragEnd"
+             @ondragend="() => OnDragEnd(item)"
              @ondragenter="() => OnDragEnter(item)"
              @ondragleave="OnDragLeave"
              @ondragleave:stopPropagation
