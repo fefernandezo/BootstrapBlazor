@@ -292,7 +292,12 @@ public class TreeTest : BootstrapBlazorTestBase
                     new() { Text = "Test3", Icon = "fa fa-fa"},
                     new() { Text = "Test4", Icon = "fa fa-fa"},
                 }, IsCollapsed = false},
-                new() { Text = "Test2", Icon = "fa fa-fa", CanDrag = false}
+                new() { Text = "Test2", Icon = "fa fa-fa", CanDrag = false, Items = new List<TreeItem>()
+                {
+                    new() { Text = "Test6", Icon = "fa fa-fa"},
+                    new() { Text = "Test7", Icon = "fa fa-fa"},
+                    new() { Text = "Test8", Icon = "fa fa-fa"},
+                },}
             });
         });
         var content = cut.FindAll(".tree-content")[1];
@@ -304,6 +309,9 @@ public class TreeTest : BootstrapBlazorTestBase
         await cut.InvokeAsync(() => space[0].DragEnter());
         await cut.InvokeAsync(() => space[0].DragLeave());
         space = cut.FindAll(".tree-space");
+        await cut.InvokeAsync(() => space[1].DragEnter());
+        await cut.InvokeAsync(() => space[1].DragLeave());
+        space = cut.FindAll(".tree-space");
         await cut.InvokeAsync(() => space[2].DragEnter());
         await cut.InvokeAsync(() => space[2].DragLeave());
         await cut.InvokeAsync(() => content.DragEnd());
@@ -312,6 +320,19 @@ public class TreeTest : BootstrapBlazorTestBase
         await cut.InvokeAsync(() => content.DragStart());
         test2 = cut.FindAll(".tree-content")[0];
         await cut.InvokeAsync(() => test2.DragEnter());
+        await cut.InvokeAsync(() => content.Drop());
+
+        var tree = cut.Find(".tree");
+        await cut.InvokeAsync(() => tree.DragOver());
+        await cut.InvokeAsync(() => tree.DragEnter());
+
+        content = cut.FindAll(".tree-content")[3];
+        await cut.InvokeAsync(() => content.Drop());
+
+        content = cut.FindAll(".tree-content")[5];
+        await cut.InvokeAsync(() => content.DragStart());
+        space = cut.FindAll(".tree-space");
+        await cut.InvokeAsync(() => space[14].DragEnter());
         await cut.InvokeAsync(() => content.Drop());
     }
 
