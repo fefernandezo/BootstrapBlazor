@@ -492,15 +492,22 @@ public class TableTest : TableTestBase
     [Fact]
     public async Task ShowColumnList_Ok()
     {
+        var show = false;
         var localizer = Context.Services.GetRequiredService<IStringLocalizer<Foo>>();
         var cut = Context.RenderComponent<BootstrapBlazorRoot>(pb =>
         {
             pb.AddChildContent<Table<Foo>>(pb =>
             {
+                pb.Add(a => a.RenderMode, TableRenderMode.Table);
                 pb.Add(a => a.ShowToolbar, true);
                 pb.Add(a => a.ShowColumnList, true);
                 pb.Add(a => a.ColumnButtonText, "Test_Column_List");
                 pb.Add(a => a.Items, Foo.GenerateFoo(localizer, 2));
+                pb.Add(a => a.OnColumnVisibleChanged, (colName, visible) =>
+                {
+                    show = visible;
+                    return Task.CompletedTask;
+                });
                 pb.Add(a => a.TableColumns, foo => builder =>
                 {
                     builder.OpenComponent<TableColumn<Foo, string>>(0);
@@ -518,8 +525,10 @@ public class TableTest : TableTestBase
         });
         cut.Contains("Test_Column_List");
 
-        var item = cut.Find(".dropdown-item");
+        var item = cut.Find(".btn-col .dropdown-item .form-check-input");
         await cut.InvokeAsync(() => item.Click());
+
+        Assert.True(show);
     }
 
     [Fact]
@@ -568,6 +577,36 @@ public class TableTest : TableTestBase
             });
         });
         cut.Contains("Test_Export");
+    }
+
+    [Fact]
+    public void ExportButtonDropdownTemplate_Ok()
+    {
+        var localizer = Context.Services.GetRequiredService<IStringLocalizer<Foo>>();
+        var cut = Context.RenderComponent<BootstrapBlazorRoot>(pb =>
+        {
+            pb.AddChildContent<Table<Foo>>(pb =>
+            {
+                pb.Add(a => a.ShowToolbar, true);
+                pb.Add(a => a.ShowExportButton, true);
+                pb.Add(a => a.ExportButtonText, "Test_Export");
+                pb.Add(a => a.ExportButtonDropdownTemplate, builder =>
+                {
+                    builder.OpenElement(0, "div");
+                    builder.AddContent(1, "test-export-dropdown-item");
+                    builder.CloseElement();
+                });
+                pb.Add(a => a.Items, Foo.GenerateFoo(localizer));
+                pb.Add(a => a.TableColumns, foo => builder =>
+                {
+                    builder.OpenComponent<TableColumn<Foo, string>>(0);
+                    builder.AddAttribute(1, "Field", "Name");
+                    builder.AddAttribute(2, "FieldExpression", Utility.GenerateValueExpression(foo, "Name", typeof(string)));
+                    builder.CloseComponent();
+                });
+            });
+        });
+        cut.Contains("test-export-dropdown-item");
     }
 
     [Theory]
@@ -655,12 +694,32 @@ public class TableTest : TableTestBase
         });
 
         var table = cut.FindComponent<Table<Foo>>();
-        Assert.Equal(20, table.Instance.PageItems);
+        Assert.Equal(20, table.Instance.PageItemsSource.First());
+    }
 
-        table.SetParametersAndRender(pb => pb.Add(a => a.PageItemsSource, new int[] { 4, 6, 8 }));
-        Assert.Equal(4, table.Instance.PageItems);
+    [Fact]
+    public void PageItems_Ok()
+    {
+        var localizer = Context.Services.GetRequiredService<IStringLocalizer<Foo>>();
+        var cut = Context.RenderComponent<BootstrapBlazorRoot>(pb =>
+        {
+            pb.AddChildContent<Table<Foo>>(pb =>
+            {
+                pb.Add(a => a.RenderMode, TableRenderMode.Table);
+                pb.Add(a => a.IsPagination, true);
+                pb.Add(a => a.OnQueryAsync, OnQueryAsync(localizer));
+                pb.Add(a => a.PageItems, 20);
+                pb.Add(a => a.TableColumns, foo => builder =>
+                {
+                    builder.OpenComponent<TableColumn<Foo, string>>(0);
+                    builder.AddAttribute(1, "Field", "Name");
+                    builder.AddAttribute(2, "FieldExpression", Utility.GenerateValueExpression(foo, "Name", typeof(string)));
+                    builder.CloseComponent();
+                });
+            });
+        });
 
-        table.SetParametersAndRender(pb => pb.Add(a => a.PageItemsSource, null));
+        var table = cut.FindComponent<Table<Foo>>();
         Assert.Equal(20, table.Instance.PageItems);
     }
 
@@ -1491,17 +1550,10 @@ public class TableTest : TableTestBase
             });
         });
 
-        if (isExcel)
-        {
-            cut.DoesNotContain("is-master");
-        }
-        else
-        {
-            cut.Contains("table-cell is-bar");
-            var btn = cut.Find(".is-master .is-bar > i");
-            await cut.InvokeAsync(() => btn.Click());
-            Assert.True(showDetail);
-        }
+        cut.Contains("table-cell is-bar");
+        var btn = cut.Find(".is-master .is-bar > i");
+        await cut.InvokeAsync(() => btn.Click());
+        Assert.True(showDetail);
     }
 
     [Theory]
@@ -1653,6 +1705,42 @@ public class TableTest : TableTestBase
         await cut.InvokeAsync(() => table.Instance.QueryAsync());
     }
 
+    [Fact]
+    public async Task OnSort_Ok()
+    {
+        // 外部未排序，组件内部自动排序
+        var localizer = Context.Services.GetRequiredService<IStringLocalizer<Foo>>();
+        var cut = Context.RenderComponent<BootstrapBlazorRoot>(pb =>
+        {
+            pb.AddChildContent<Table<Foo>>(pb =>
+            {
+                pb.Add(a => a.RenderMode, TableRenderMode.Table);
+                pb.Add(a => a.OnQueryAsync, OnQueryAsync(localizer, isSorted: false));
+                pb.Add(a => a.TableColumns, foo => builder =>
+                {
+                    builder.OpenComponent<TableColumn<Foo, string>>(0);
+                    builder.AddAttribute(1, "Field", "Name");
+                    builder.AddAttribute(2, "FieldExpression", Utility.GenerateValueExpression(foo, "Name", typeof(string)));
+                    builder.AddAttribute(3, "Sortable", true);
+                    builder.AddAttribute(4, "DefaultSort", true);
+                    builder.AddAttribute(4, "DefaultSortOrder", SortOrder.Desc);
+                    builder.CloseComponent();
+                });
+                pb.Add(a => a.SortIcon, "fa fa-sort");
+            });
+        });
+
+        var name = cut.Find("td").TextContent;
+        Assert.Contains("0005", name);
+
+        // click sort
+        var sort = cut.Find("th");
+        await cut.InvokeAsync(() => sort.Click());
+
+        name = name = cut.Find("td").TextContent;
+        Assert.Contains("0001", name);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
@@ -1742,6 +1830,42 @@ public class TableTest : TableTestBase
         await cut.InvokeAsync(() => bar.Click());
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    [InlineData(null)]
+    public void IsDetails_Ok(bool? isDetails)
+    {
+        var localizer = Context.Services.GetRequiredService<IStringLocalizer<Foo>>();
+        var cut = Context.RenderComponent<BootstrapBlazorRoot>(pb =>
+        {
+            pb.AddChildContent<Table<Foo>>(pb =>
+            {
+                pb.Add(a => a.RenderMode, TableRenderMode.Table);
+                pb.Add(a => a.IsDetails, isDetails);
+                pb.Add(a => a.DetailRowTemplate, foo => builder => builder.AddContent(0, foo.Name));
+                pb.Add(a => a.OnQueryAsync, OnQueryAsync(localizer));
+                pb.Add(a => a.TableColumns, foo => builder =>
+                {
+                    builder.OpenComponent<TableColumn<Foo, string>>(0);
+                    builder.AddAttribute(1, "Field", "Name");
+                    builder.AddAttribute(2, "FieldExpression", Utility.GenerateValueExpression(foo, "Name", typeof(string)));
+                    builder.CloseComponent();
+                });
+            });
+        });
+
+        if (isDetails.HasValue && isDetails.Value == false)
+        {
+            // 无明细行
+            cut.DoesNotContain("is-master");
+        }
+        else
+        {
+            cut.Contains("is-master");
+        }
+    }
+
     [Fact]
     public void ColSpan_OK()
     {
@@ -1800,6 +1924,7 @@ public class TableTest : TableTestBase
                 pb.Add(a => a.RenderMode, TableRenderMode.Table);
                 pb.Add(a => a.IsTree, true);
                 pb.Add(a => a.Items, FooTree.Generate(localizer));
+                pb.Add(a => a.TreeNodeConverter, items => BuildTreeAsync(items));
                 pb.Add(a => a.TableColumns, foo => builder =>
                 {
                     builder.OpenComponent<TableColumn<Foo, string>>(0);
@@ -1824,7 +1949,8 @@ public class TableTest : TableTestBase
                 pb.Add(a => a.IsTree, true);
                 pb.Add(a => a.IsMultipleSelect, true);
                 pb.Add(a => a.OnQueryAsync, op => OnQueryAsync(op, localizer));
-                pb.Add(a => a.OnTreeExpand, foo => Task.FromResult(FooTree.Generate(localizer, foo.Id < 2, foo.Id).AsEnumerable()));
+                pb.Add(a => a.TreeNodeConverter, items => BuildTreeAsync(items));
+                pb.Add(a => a.OnTreeExpand, foo => Task.FromResult(FooTree.Generate(localizer, foo.Id, 100).Select(foo => new TableTreeNode<FooTree>(foo))));
                 pb.Add(a => a.TableColumns, foo => builder =>
                 {
                     builder.OpenComponent<TableColumn<Foo, string>>(0);
@@ -1838,28 +1964,48 @@ public class TableTest : TableTestBase
         await cut.InvokeAsync(() => input.Click());
 
         // 点击展开
-        var node = cut.Find("tbody .is-node");
+        var node = cut.Find("tbody .is-tree");
         await cut.InvokeAsync(() => node.Click());
-
-        node = cut.FindAll("tbody .is-node").Skip(1).First();
         await cut.InvokeAsync(() => node.Click());
 
         var table = cut.FindComponent<Table<FooTree>>();
         await cut.InvokeAsync(() => table.Instance.QueryAsync());
 
         var nodes = cut.FindAll("tbody tr");
-        Assert.Equal(8, nodes.Count);
+        Assert.Equal(4, nodes.Count);
     }
 
-    private static Task<QueryData<FooTree>> OnQueryAsync(QueryPageOptions _, IStringLocalizer<Foo> localizer)
+    [Fact]
+    public async void IsTree_OnTreeExpand()
     {
-        var items = FooTree.Generate(localizer);
-        var data = new QueryData<FooTree>()
+        var localizer = Context.Services.GetRequiredService<IStringLocalizer<Foo>>();
+        var cut = Context.RenderComponent<BootstrapBlazorRoot>(pb =>
         {
-            Items = items,
-            TotalCount = items.Count(),
-        };
-        return Task.FromResult(data);
+            pb.AddChildContent<Table<FooTree>>(pb =>
+            {
+                pb.Add(a => a.RenderMode, TableRenderMode.Table);
+                pb.Add(a => a.IsTree, true);
+                pb.Add(a => a.Items, FooTree.Generate(localizer));
+                pb.Add(a => a.TreeNodeConverter, items =>
+                {
+                    var ret = items.Select(i => new TableTreeNode<FooTree>(i) { HasChildren = true });
+                    return Task.FromResult(ret);
+                });
+                pb.Add(a => a.OnTreeExpand, foo => Task.FromResult(FooTree.Generate(localizer, foo.Id, 100).Select(foo => new TableTreeNode<FooTree>(foo))));
+                pb.Add(a => a.TableColumns, foo => builder =>
+                {
+                    builder.OpenComponent<TableColumn<Foo, string>>(0);
+                    builder.AddAttribute(1, "Field", "Name");
+                    builder.AddAttribute(2, "FieldExpression", Utility.GenerateValueExpression(foo, "Name", typeof(string)));
+                    builder.CloseComponent();
+                });
+            });
+        });
+        // 点击展开
+        var node = cut.Find("tbody .is-tree");
+        await cut.InvokeAsync(() => node.Click());
+        var nodes = cut.FindAll("tbody tr");
+        Assert.Equal(4, nodes.Count);
     }
 
     [Fact]
@@ -1872,8 +2018,8 @@ public class TableTest : TableTestBase
             {
                 pb.Add(a => a.RenderMode, TableRenderMode.Table);
                 pb.Add(a => a.IsTree, true);
-                pb.Add(a => a.HasChildrenColumnName, "HasChildren");
                 pb.Add(a => a.OnQueryAsync, op => OnQueryAsync(op, localizer));
+                pb.Add(a => a.TreeNodeConverter, items => BuildTreeAsync(items));
                 pb.Add(a => a.TableColumns, foo => builder =>
                 {
                     builder.OpenComponent<TableColumn<Foo, string>>(0);
@@ -1883,15 +2029,149 @@ public class TableTest : TableTestBase
                 });
             });
         });
-        // 点击展开
-        var node = cut.Find("tbody .table-cell.is-tree .is-node");
-        Assert.ThrowsAsync<InvalidOperationException>(() => cut.InvokeAsync(() => node.Click()));
 
-        var table = cut.FindComponent<Table<FooTree>>();
-        table.SetParametersAndRender(pb =>
+        // 点击展开
+        var node = cut.Find("tbody .table-cell.is-tree");
+        Assert.ThrowsAsync<InvalidOperationException>(() => cut.InvokeAsync(() => node.Click()));
+    }
+
+    [Fact]
+    public void IsTree_TableRowEqualityComparer()
+    {
+        var cut = Context.RenderComponent<BootstrapBlazorRoot>(pb =>
         {
-            pb.Add(a => a.HasChildrenColumnName, "Name");
+            pb.AddChildContent<MockTreeTable<Cat>>(pb => pb.Add(a => a.ModelEqualityComparer, (x, y) => x.Id == y.Id));
         });
+
+        var table = cut.FindComponent<MockTreeTable<Cat>>();
+        var ret = table.Instance.TestComparerItem(new Cat() { Id = 1 }, new Cat() { Id = 1 });
+        Assert.True(ret);
+    }
+
+    [Fact]
+    public void IsTree_KeyAttribute()
+    {
+        var cut = Context.RenderComponent<BootstrapBlazorRoot>(pb =>
+        {
+            pb.AddChildContent<MockTreeTable<Cat>>(pb => pb.Add(a => a.CustomKeyAttribute, typeof(CatKeyAttribute)));
+        });
+
+        var table = cut.FindComponent<MockTreeTable<Cat>>();
+        var ret = table.Instance.TestComparerItem(new Cat() { Id = 1 }, new Cat() { Id = 1 });
+        Assert.True(ret);
+    }
+
+    [Fact]
+    public void IsTree_EqualityComparer()
+    {
+        var cut = Context.RenderComponent<BootstrapBlazorRoot>(pb =>
+        {
+            pb.AddChildContent<MockTreeTable<Dummy>>();
+        });
+
+        var table = cut.FindComponent<MockTreeTable<Dummy>>();
+        var ret = table.Instance.TestComparerItem(new Dummy() { Id = 1 }, new Dummy() { Id = 1 });
+        Assert.True(ret);
+    }
+
+    [Fact]
+    public void IsTree_Equality()
+    {
+        var cut = Context.RenderComponent<BootstrapBlazorRoot>(pb =>
+        {
+            pb.AddChildContent<MockTreeTable<Dog>>();
+        });
+
+        var table = cut.FindComponent<MockTreeTable<Dog>>();
+        var ret = table.Instance.TestComparerItem(new Dog() { Id = 1 }, new Dog() { Id = 1 });
+        Assert.True(ret);
+    }
+
+    [Fact]
+    public async Task IsTree_KeepExpand()
+    {
+        // 展开树状节点
+        // 重新查询后节点依然展开
+        var localizer = Context.Services.GetRequiredService<IStringLocalizer<Foo>>();
+        var cut = Context.RenderComponent<BootstrapBlazorRoot>(pb =>
+        {
+            pb.AddChildContent<Table<FooTree>>(pb =>
+            {
+                pb.Add(a => a.RenderMode, TableRenderMode.Table);
+                pb.Add(a => a.IsTree, true);
+                pb.Add(a => a.OnQueryAsync, op =>
+                {
+                    var items = FooTree.Generate(localizer);
+                    return Task.FromResult(new QueryData<FooTree>()
+                    {
+                        Items = items
+                    });
+                });
+                pb.Add(a => a.TreeNodeConverter, items =>
+                {
+                    var ret = items.Select(i => new TableTreeNode<FooTree>(i) { HasChildren = true });
+                    return Task.FromResult(ret);
+                });
+                pb.Add(a => a.OnTreeExpand, foo => Task.FromResult(FooTree.Generate(localizer, foo.Id, 100).Select(foo => new TableTreeNode<FooTree>(foo))));
+                pb.Add(a => a.TableColumns, foo => builder =>
+                {
+                    builder.OpenComponent<TableColumn<Foo, string>>(0);
+                    builder.AddAttribute(1, "Field", "Name");
+                    builder.AddAttribute(2, "FieldExpression", Utility.GenerateValueExpression(foo, "Name", typeof(string)));
+                    builder.CloseComponent();
+                });
+            });
+        });
+
+        // 点击展开
+        var node = cut.Find("tbody .is-tree");
+        await cut.InvokeAsync(() => node.Click());
+        var nodes = cut.FindAll("tbody tr");
+        Assert.Equal(4, nodes.Count);
+
+        // 查询
+        var table = cut.FindComponent<Table<FooTree>>();
+        await cut.InvokeAsync(() => table.Instance.QueryAsync());
+        Assert.Contains("is-tree fa fa-fw fa-caret-right fa-rotate-90", cut.Markup);
+
+        table.SetParametersAndRender(pb => pb.Add(a => a.OnTreeExpand, null));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => table.Instance.QueryAsync());
+    }
+
+    private static Task<QueryData<FooTree>> OnQueryAsync(QueryPageOptions _, IStringLocalizer<Foo> localizer)
+    {
+        var items = FooTree.Generate(localizer);
+        // 生成第一行子项数据集合
+        items.AddRange(FooTree.Generate(localizer, 1, 10));
+
+        var data = new QueryData<FooTree>()
+        {
+            Items = items,
+            TotalCount = items.Count,
+        };
+        return Task.FromResult(data);
+    }
+
+    private static Task<IEnumerable<TableTreeNode<FooTree>>> BuildTreeAsync(IEnumerable<FooTree> items)
+    {
+        // 构造树状数据结构
+        var ret = BuildTreeNodes(items, 0);
+        return Task.FromResult(ret);
+
+        IEnumerable<TableTreeNode<FooTree>> BuildTreeNodes(IEnumerable<FooTree> items, int parentId)
+        {
+            var ret = new List<TableTreeNode<FooTree>>();
+            ret.AddRange(items.Where(i => i.ParentId == parentId).Select((foo, index) => new TableTreeNode<FooTree>(foo)
+            {
+                // 此处为示例，假设偶行数据都有子数据
+                HasChildren = index % 2 == 0,
+                // 如果子项集合有值 则默认展开此节点
+                IsExpand = items.Any(i => i.ParentId == foo.Id),
+                // 获得子项集合
+                Items = BuildTreeNodes(items.Where(i => i.ParentId == foo.Id), foo.Id)
+            }));
+            return ret;
+        }
     }
 
     [Fact]
@@ -1905,6 +2185,11 @@ public class TableTest : TableTestBase
                 pb.Add(a => a.RenderMode, TableRenderMode.Table);
                 pb.Add(a => a.IsTree, true);
                 pb.Add(a => a.OnQueryAsync, OnQueryAsync);
+                pb.Add(a => a.TreeNodeConverter, items =>
+                {
+                    var ret = items.Select(i => new TableTreeNode<FooNoKeyTree>(i));
+                    return Task.FromResult(ret);
+                });
                 pb.Add(a => a.IsMultipleSelect, true);
                 pb.Add(a => a.TableColumns, foo => builder =>
                 {
@@ -2210,6 +2495,12 @@ public class TableTest : TableTestBase
                 pb.Add(a => a.SearchText, "test_search_text");
                 pb.Add(a => a.OnQueryAsync, op =>
                 {
+                    Assert.Equal("test_search_text", op.SearchText);
+                    Assert.Equal(1, op.PageIndex);
+                    Assert.Equal(0, op.StartIndex);
+                    Assert.Equal(20, op.PageItems);
+                    Assert.False(op.IsPage);
+                    Assert.NotNull(op.SearchModel);
                     return OnQueryAsync(localizer, isSearch: false)(op);
                 });
                 pb.Add(a => a.TableColumns, foo => builder =>
@@ -3541,6 +3832,34 @@ public class TableTest : TableTestBase
     }
 
     [Fact]
+    public async Task DynamicContext_EqualityComparer()
+    {
+        var comparered = false;
+        var localizer = Context.Services.GetRequiredService<IStringLocalizer<Foo>>();
+        var items = Foo.GenerateFoo(localizer, 2);
+        var context = CreateDynamicContext(localizer);
+        context.EqualityComparer = (x, y) =>
+        {
+            comparered = true;
+            return x.GetValue("Id") == y.GetValue("Id");
+        };
+        var cut = Context.RenderComponent<BootstrapBlazorRoot>(pb =>
+        {
+            pb.AddChildContent<Table<DynamicObject>>(pb =>
+            {
+                pb.Add(a => a.RenderMode, TableRenderMode.Table);
+                pb.Add(a => a.IsMultipleSelect, true);
+                pb.Add(a => a.DynamicContext, context);
+            });
+        });
+
+        // 选中行
+        var input = cut.Find("tbody input");
+        await cut.InvokeAsync(() => input.Click());
+        Assert.True(comparered);
+    }
+
+    [Fact]
     public async Task DynamicContext_Add()
     {
         var localizer = Context.Services.GetRequiredService<IStringLocalizer<Foo>>();
@@ -3587,7 +3906,7 @@ public class TableTest : TableTestBase
     }
 
     [Fact]
-    public void CustomerSearchs_Ok()
+    public void CustomerSearches_Ok()
     {
         var localizer = Context.Services.GetRequiredService<IStringLocalizer<Foo>>();
         var cut = Context.RenderComponent<BootstrapBlazorRoot>(pb =>
@@ -3597,8 +3916,8 @@ public class TableTest : TableTestBase
                 pb.Add(a => a.RenderMode, TableRenderMode.Table);
                 pb.Add(a => a.OnQueryAsync, op =>
                 {
-                    op.CustomerSearchs = new List<IFilterAction>() { new MockFilterAction() };
-                    op.Filters = new List<IFilterAction>() { new MockFilterAction() };
+                    op.CustomerSearchs.AddRange(new List<IFilterAction>() { new MockFilterAction() });
+                    op.Filters.AddRange(new List<IFilterAction>() { new MockFilterAction() });
                     return OnQueryAsync(localizer, isAdvanceSearch: false, isFilter: false)(op);
                 });
                 pb.Add(a => a.TableColumns, foo => builder =>
@@ -4306,7 +4625,7 @@ public class TableTest : TableTestBase
     }
 
     [Fact]
-    public void HasChildrenCallback_Ok()
+    public void TreeNodeConverter_Ok()
     {
         var localizer = Context.Services.GetRequiredService<IStringLocalizer<Foo>>();
         var cut = Context.RenderComponent<BootstrapBlazorRoot>(pb =>
@@ -4316,8 +4635,8 @@ public class TableTest : TableTestBase
                 pb.Add(a => a.RenderMode, TableRenderMode.Table);
                 pb.Add(a => a.IsTree, true);
                 pb.Add(a => a.IndentSize, 32);
-                pb.Add(a => a.HasChildrenCallback, foo => foo.Id < 2);
                 pb.Add(a => a.OnQueryAsync, op => OnQueryAsync(op, localizer));
+                pb.Add(a => a.TreeNodeConverter, items => BuildTreeAsync(items));
                 pb.Add(a => a.TableColumns, foo => builder =>
                 {
                     builder.OpenComponent<TableColumn<Foo, string>>(0);
@@ -4327,11 +4646,10 @@ public class TableTest : TableTestBase
                 });
             });
         });
-        var nodes = cut.FindAll("tbody .is-tree .is-node");
-        Assert.Equal(1, nodes.Count);
 
-        var table = cut.FindComponent<Table<FooTree>>();
-        Assert.Equal(32, table.Instance.IndentSize);
+        // 有子节点所以有两个 .is-node
+        var nodes = cut.FindAll("tbody .is-tree .is-node");
+        Assert.Equal(2, nodes.Count);
     }
 
     [Fact]
@@ -5135,10 +5453,12 @@ public class TableTest : TableTestBase
     {
         var userData = new DataTable();
         userData.Columns.Add(nameof(Foo.Name), typeof(string));
+        userData.Columns.Add("Id", typeof(int));
 
+        var index = 0;
         Foo.GenerateFoo(localizer, 2).ForEach(f =>
         {
-            userData.Rows.Add(f.Name);
+            userData.Rows.Add(f.Name, index++);
         });
 
         return userData;
@@ -5239,6 +5559,17 @@ public class TableTest : TableTestBase
         {
             Buttons.AddButton(this);
         }
+
+        /// <summary>
+        /// DisposeAsyncCore
+        /// </summary>
+        /// <param name="disposing"></param>
+        /// <returns></returns>
+        protected override ValueTask DisposeAsyncCore(bool disposing)
+        {
+            Buttons?.RemoveButton(this);
+            return base.DisposeAsyncCore(disposing);
+        }
     }
 
     private class MockToolbarButton<TItem> : ButtonBase
@@ -5262,22 +5593,18 @@ public class TableTest : TableTestBase
 
     private class FooTree : Foo
     {
-        private static readonly Random random = new();
+        public int ParentId { get; set; }
 
-        public IEnumerable<FooTree>? Children { get; set; }
-
-        public bool HasChildren { get; set; }
-
-        public static IEnumerable<FooTree> Generate(IStringLocalizer<Foo> localizer, bool hasChildren = true, int seed = 0) => Enumerable.Range(1, 2).Select(i => new FooTree()
+        public static List<FooTree> Generate(IStringLocalizer<Foo> localizer, int parentId = 0, int seed = 0) => Enumerable.Range(1, 2).Select(i => new FooTree()
         {
             Id = i + seed,
+            ParentId = parentId,
             Name = localizer["Foo.Name", $"{seed:d2}{(i + seed):d2}"],
             DateTime = System.DateTime.Now.AddDays(i - 1),
-            Address = localizer["Foo.Address", $"{random.Next(1000, 2000)}"],
-            Count = random.Next(1, 100),
-            Complete = random.Next(1, 100) > 50,
-            Education = random.Next(1, 100) > 50 ? EnumEducation.Primary : EnumEducation.Middel,
-            HasChildren = hasChildren
+            Address = localizer["Foo.Address", $"{Random.Next(1000, 2000)}"],
+            Count = Random.Next(1, 100),
+            Complete = Random.Next(1, 100) > 50,
+            Education = Random.Next(1, 100) > 50 ? EnumEducation.Primary : EnumEducation.Middel
         }).ToList();
     }
 
@@ -5287,24 +5614,35 @@ public class TableTest : TableTestBase
         [AutoGenerateColumn(Ignore = true)]
         public new int Id { get; set; }
 
-        private static readonly Random random = new();
-
-        public static new IEnumerable<FooNoKeyTree> Generate(IStringLocalizer<Foo> localizer, bool hasChildren = true, int seed = 0) => Enumerable.Range(1, 2).Select(i => new FooNoKeyTree()
+        public static IEnumerable<FooNoKeyTree> Generate(IStringLocalizer<Foo> localizer, int seed = 0) => Enumerable.Range(1, 2).Select(i => new FooNoKeyTree()
         {
             Id = i + seed,
             Name = localizer["Foo.Name", $"{seed:d2}{(i + seed):d2}"],
             DateTime = System.DateTime.Now.AddDays(i - 1),
-            Address = localizer["Foo.Address", $"{random.Next(1000, 2000)}"],
-            Count = random.Next(1, 100),
-            Complete = random.Next(1, 100) > 50,
-            Education = random.Next(1, 100) > 50 ? EnumEducation.Primary : EnumEducation.Middel,
-            HasChildren = hasChildren
+            Address = localizer["Foo.Address", $"{Random.Next(1000, 2000)}"],
+            Count = Random.Next(1, 100),
+            Complete = Random.Next(1, 100) > 50,
+            Education = Random.Next(1, 100) > 50 ? EnumEducation.Primary : EnumEducation.Middel
         }).ToList();
     }
 
     private class ReadonlyFoo : Foo
     {
         public string? ReadonlyValue { get; }
+    }
+
+    private class Cat
+    {
+        [CatKey]
+        public int Id { get; set; }
+
+        public string? Name { get; set; }
+    }
+
+    [AttributeUsage(AttributeTargets.Property)]
+    private class CatKeyAttribute : Attribute
+    {
+
     }
 
     private class FooSearchModel : ITableSearchModel
@@ -5371,7 +5709,6 @@ public class TableTest : TableTestBase
     {
         public TableRenderMode ShouldBeTable()
         {
-            // ScreenSize < RenderModeResponsiveWidth ? TableRenderMode.CardView : TableRenderMode.Table
             ScreenSize = 10;
             RenderModeResponsiveWidth = 5;
             RenderMode = TableRenderMode.Auto;
@@ -5447,6 +5784,51 @@ public class TableTest : TableTestBase
         {
             var context = new EditContext(SelectedRows[0]);
             return await base.SaveModelAsync(context, ItemChangedType.Update);
+        }
+    }
+
+    private class MockTreeTable<TItem> : Table<TItem> where TItem : class, new()
+    {
+        public bool TestComparerItem(TItem a, TItem b)
+        {
+            return ComparerItem(a, b);
+        }
+    }
+
+    private class Dummy : IEqualityComparer<Dummy>
+    {
+        public int Id { get; set; }
+
+        public bool Equals(Dummy? x, Dummy? y)
+        {
+            var ret = false;
+            if (x != null && y != null)
+            {
+                ret = x.Id == y.Id;
+            }
+            return ret;
+        }
+
+        public int GetHashCode([DisallowNull] Dummy obj) => obj.GetHashCode();
+    }
+
+    private class Dog
+    {
+        public int Id { get; set; }
+
+        public override bool Equals(object? obj)
+        {
+            var ret = false;
+            if (obj is Dog d)
+            {
+                ret = d.Id == Id;
+            }
+            return ret;
+        }
+
+        public override int GetHashCode()
+        {
+            return base.GetHashCode();
         }
     }
 }

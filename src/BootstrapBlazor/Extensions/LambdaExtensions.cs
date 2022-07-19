@@ -148,11 +148,12 @@ public static class LambdaExtensions
 
         Expression<Func<TItem, bool>> GetSimpleFilterExpression()
         {
-            var prop = typeof(TItem).GetPropertyByName(filter.FieldKey) ?? throw new InvalidOperationException($"the model {type.Name} not found the property {filter.FieldKey}"); ;
+            var prop = typeof(TItem).GetPropertyByName(filter.FieldKey) ?? throw new InvalidOperationException($"the model {type.Name} not found the property {filter.FieldKey}");
             if (prop != null)
             {
                 var p = Expression.Parameter(type);
                 var fieldExpression = Expression.Property(p, prop);
+                var isNullable = false;
 
                 Expression eq = fieldExpression;
 
@@ -160,13 +161,16 @@ public static class LambdaExtensions
                 if (prop.PropertyType.IsGenericType &&
                     prop.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>))
                 {
+                    isNullable = true;
                     eq = Expression.Convert(fieldExpression, prop.PropertyType.GenericTypeArguments[0]);
                 }
                 else if (prop.PropertyType.IsEnum && filter.FieldValue is string)
                 {
                     eq = Expression.Call(fieldExpression, prop.PropertyType.GetMethod("ToString", Array.Empty<Type>())!);
                 }
-                eq = filter.GetExpression(eq);
+                eq = isNullable
+                    ? Expression.AndAlso(Expression.NotEqual(fieldExpression, Expression.Constant(null)), filter.GetExpression(eq))
+                    : filter.GetExpression(eq);
                 ret = Expression.Lambda<Func<TItem, bool>>(eq, p);
             }
             return ret;
@@ -174,8 +178,10 @@ public static class LambdaExtensions
 
         Expression<Func<TItem, bool>> GetComplexFilterExpression()
         {
+            Expression<Func<TItem, bool>> ret = t => true;
             var p = Expression.Parameter(type);
             var propertyNames = filter.FieldKey.Split('.');
+            var isNullable = false;
             PropertyInfo? pInfo = null;
             Expression? fieldExpression = null;
             foreach (var name in propertyNames)
@@ -192,17 +198,26 @@ public static class LambdaExtensions
                 }
             }
 
-            // 可为空类型转化为具体类型
-            if (pInfo!.PropertyType.IsGenericType && pInfo.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>))
+            if (fieldExpression != null)
             {
-                fieldExpression = Expression.Convert(fieldExpression!, pInfo.PropertyType.GenericTypeArguments[0]);
+                var eq = fieldExpression;
+
+                // 可为空类型转化为具体类型
+                if (pInfo!.PropertyType.IsGenericType && pInfo.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>))
+                {
+                    isNullable = true;
+                    eq = Expression.Convert(fieldExpression, pInfo.PropertyType.GenericTypeArguments[0]);
+                }
+                else if (pInfo.PropertyType.IsEnum && filter.FieldValue is string)
+                {
+                    eq = Expression.Call(fieldExpression, pInfo.PropertyType.GetMethod("ToString", Array.Empty<Type>())!);
+                }
+                eq = isNullable
+                    ? Expression.AndAlso(Expression.NotEqual(fieldExpression, Expression.Constant(null)), filter.GetExpression(eq))
+                    : filter.GetExpression(eq);
+                ret = Expression.Lambda<Func<TItem, bool>>(eq, p);
             }
-            else if (pInfo.PropertyType.IsEnum && filter.FieldValue is string)
-            {
-                fieldExpression = Expression.Call(fieldExpression, pInfo.PropertyType.GetMethod("ToString", Array.Empty<Type>())!);
-            }
-            fieldExpression = filter.GetExpression(fieldExpression!);
-            return Expression.Lambda<Func<TItem, bool>>(fieldExpression, p);
+            return ret;
         }
     }
 
@@ -769,20 +784,36 @@ public static class LambdaExtensions
     /// <typeparam name="TModel"></typeparam>
     /// <typeparam name="TValue"></typeparam>
     /// <returns></returns>
-    public static Expression<Func<TModel, TValue>> GetKeyValue<TModel, TValue>(TModel model)
+    public static Expression<Func<TModel, TValue>> GetKeyValue<TModel, TValue>(Type? customAttribute = null)
     {
-        if (model == null)
-        {
-            throw new ArgumentNullException(nameof(model));
-        }
-        var type = model.GetType();
+        var type = typeof(TModel);
         Expression<Func<TModel, TValue>> ret = _ => default!;
-        var property = type.GetRuntimeProperties().FirstOrDefault(p => p.IsDefined(typeof(KeyAttribute)));
-        if (property != null)
+        var properties = type.GetRuntimeProperties()
+                             .Where(p => p.IsDefined(customAttribute ?? typeof(KeyAttribute)))
+                             .ToList();
+        if (properties.Any())
         {
-            var param = Expression.Parameter(typeof(TModel));
-            var body = Expression.Property(Expression.Convert(param, type), property);
-            ret = Expression.Lambda<Func<TModel, TValue>>(Expression.Convert(body, typeof(TValue)), param);
+            var param = Expression.Parameter(type);
+            var valueType = typeof(TValue);
+            if (properties.Count == 1)
+            {
+                // 单主键
+                var body = Expression.Property(Expression.Convert(param, type), properties.First());
+                ret = Expression.Lambda<Func<TModel, TValue>>(Expression.Convert(body, valueType), param);
+            }
+            else if (properties.Count < 9)
+            {
+                // 联合主键
+                var tupleType = Type.GetType($"System.Tuple`{properties.Count}")!;
+                var keyPropertyTypes = properties.Select(x => x.PropertyType).ToArray();
+                var tupleConstructor = tupleType.MakeGenericType(keyPropertyTypes).GetConstructor(keyPropertyTypes);
+                if (tupleConstructor != null)
+                {
+                    var newTupleExpression = Expression.New(tupleConstructor, properties.Select(p => Expression.Property(param, p)));
+                    var body = Expression.Convert(newTupleExpression, valueType);
+                    ret = Expression.Lambda<Func<TModel, TValue>>(Expression.Convert(body, valueType), param);
+                }
+            }
         }
         return ret;
     }

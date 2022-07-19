@@ -417,8 +417,10 @@ public partial class Table<TItem>
             if (OnQueryAsync == null && DynamicContext != null && typeof(TItem).IsAssignableTo(typeof(IDynamicObject)))
             {
                 // 动态数据
-                SelectedRows.Clear();
                 QueryItems = DynamicContext.GetItems().Cast<TItem>();
+
+                // 设置默认选中行
+                SelectedRows.Clear();
                 if (DynamicContext.OnGetSelectedRows != null)
                 {
                     SelectedRows.AddRange(DynamicContext.OnGetSelectedRows().Cast<TItem>());
@@ -427,7 +429,6 @@ public partial class Table<TItem>
             }
             else
             {
-                // 数据集合
                 await OnQuery();
             }
         }
@@ -447,23 +448,29 @@ public partial class Table<TItem>
                 SearchText = SearchText,
                 SortOrder = SortOrder,
                 SortName = SortName,
-                SortList = string.IsNullOrEmpty(SortString) ? null : new List<string>(SortString.Split(",", StringSplitOptions.RemoveEmptyEntries)),
-                Filters = Filters.Values,
-                Searchs = GetSearchs(),
-                AdvanceSearchs = GetAdvanceSearchs(),
-                CustomerSearchs = GetCustomerSearchs(),
                 SearchModel = SearchModel,
                 StartIndex = StartIndex
             };
+
+            queryOption.Filters.AddRange(Filters.Values);
+            queryOption.Searchs.AddRange(GetSearchs());
+            queryOption.AdvanceSearchs.AddRange(GetAdvanceSearchs());
+            queryOption.CustomerSearchs.AddRange(GetCustomerSearchs());
+
+            if (!string.IsNullOrEmpty(SortString))
+            {
+                queryOption.SortList.AddRange(SortString.Split(",", StringSplitOptions.RemoveEmptyEntries));
+            }
 
             if (CustomerSearchModel != null)
             {
                 queryOption.SearchModel = CustomerSearchModel;
             }
 
-            queryData = await InternalOnQueryAsync(queryOption);
             RowsCache = null;
             Items = null;
+
+            queryData = await InternalOnQueryAsync(queryOption);
             QueryItems = queryData.Items;
             TotalCount = queryData.TotalCount;
             IsAdvanceSearch = queryData.IsAdvanceSearch;
@@ -472,10 +479,7 @@ public partial class Table<TItem>
             ProcessSelectedRows();
 
             // 分页情况下内部不做处理防止页码错乱
-            if (!queryOption.IsPage)
-            {
-                ProcessPageData(queryData, queryOption);
-            }
+            ProcessData(queryData, queryOption);
 
             if (IsTree)
             {
@@ -484,38 +488,18 @@ public partial class Table<TItem>
 
             void ProcessSelectedRows()
             {
-                // 判断模型是否有 [Key] Id 等可识别字段尝试重构
                 var rows = new List<TItem>();
-                if (HasKeyAttribute)
+                foreach (var row in SelectedRows)
                 {
-                    // 更新选中行逻辑
-                    foreach (var item in SelectedRows)
+                    if (QueryItems.Any(i => ComparerItem(i, row)))
                     {
-                        var key = Utility.GetKeyValue<TItem, object>(item);
-                        if (key != null)
-                        {
-                            var row = QueryItems.FirstOrDefault(i => Utility.GetKeyValue<TItem, object>(i).ToString() == key.ToString());
-                            if (row != null)
-                            {
-                                rows.Add(row);
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    foreach (var row in SelectedRows)
-                    {
-                        if (QueryItems.Any(i => i == row))
-                        {
-                            rows.Add(row);
-                        }
+                        rows.Add(row);
                     }
                 }
                 SelectedRows = rows;
             }
 
-            void ProcessPageData(QueryData<TItem> queryData, QueryPageOptions queryOption)
+            void ProcessData(QueryData<TItem> queryData, QueryPageOptions queryOption)
             {
                 var filtered = queryData.IsFiltered;
                 var sorted = queryData.IsSorted;
@@ -547,12 +531,12 @@ public partial class Table<TItem>
                 // 先处理列头排序 再处理默认多列排序
                 if (!sorted)
                 {
-                    if (queryOption.SortOrder != SortOrder.Unset && !string.IsNullOrEmpty(queryOption.SortName))
+                    if (OnSort == null && queryOption.SortOrder != SortOrder.Unset && !string.IsNullOrEmpty(queryOption.SortName))
                     {
                         var invoker = Utility.GetSortFunc<TItem>();
                         QueryItems = invoker(QueryItems, queryOption.SortName, queryOption.SortOrder);
                     }
-                    else if (queryOption.SortList != null && queryOption.SortList.Any())
+                    else if (queryOption.SortList.Any())
                     {
                         var invoker = Utility.GetSortListFunc<TItem>();
                         QueryItems = invoker(QueryItems, queryOption.SortList);
@@ -562,74 +546,68 @@ public partial class Table<TItem>
 
             async Task ProcessTreeData()
             {
-                KeySet.Clear();
-                if (HasKeyAttribute)
+                var treeNodes = new List<TableTreeNode<TItem>>();
+                if (TreeNodeConverter != null)
                 {
-                    CheckExpandKeys(TreeRows);
+                    treeNodes.AddRange(await TreeNodeConverter(QueryItems));
                 }
-                if (KeySet.Count > 0)
+
+                if (treeNodes.Any())
                 {
-                    TreeRows = new List<TableTreeNode<TItem>>();
-                    foreach (var item in QueryItems)
+                    await CheckExpand(treeNodes);
+                }
+
+                TreeRows.Clear();
+                TreeRows.AddRange(treeNodes);
+
+                async Task CheckExpand(IEnumerable<TableTreeNode<TItem>> nodes)
+                {
+                    foreach (var node in nodes)
                     {
-                        var node = new TableTreeNode<TItem>(item)
+                        if (ExpandedRows.Any(i => ComparerItem(i, node.Value)))
                         {
-                            HasChildren = CheckTreeChildren(item),
-                        };
-                        node.IsExpand = IsExpandRow(node);
-                        if (node.IsExpand)
-                        {
-                            await RestoreIsExpand(node);
+                            // 原来是展开状态
+                            node.IsExpand = true;
+                            if (!node.Items.Any())
+                            {
+                                await GetChildrenRow(node, node.Value);
+                            }
                         }
-                        TreeRows.Add(node);
+                        else
+                        {
+                            ExpandedRows.RemoveAll(i => ComparerItem(i, node.Value));
+                        }
+                        if (node.Items.Any())
+                        {
+                            await CheckExpand(node.Items);
+                        }
                     }
                 }
-                else
-                {
-                    TreeRows = QueryItems.Select(item => new TableTreeNode<TItem>(item)
-                    {
-                        HasChildren = CheckTreeChildren(item)
-                    }).ToList();
-                }
             }
         }
     }
 
-    private HashSet<object> KeySet { get; } = new();
+    /// <summary>
+    /// 比较数据是否相同
+    /// </summary>
+    /// <param name="a"></param>
+    /// <param name="b"></param>
+    /// <returns></returns>
+    protected bool ComparerItem(TItem a, TItem b) => ModelEqualityComparer?.Invoke(a, b)
+        ?? DynamicContext?.EqualityComparer?.Invoke((IDynamicObject)a, (IDynamicObject)b)
+        ?? Utility.GetKeyValue<TItem, object>(a, CustomKeyAttribute)
+            ?.Equals(Utility.GetKeyValue<TItem, object>(b, CustomKeyAttribute))
+        ?? EqualityComparer(a, b)
+        ?? a.Equals(b);
 
-    private bool IsExpandRow(TableTreeNode<TItem> node) => node.HasChildren && node.Key != null && KeySet.Contains(node.Key);
-
-    private void CheckExpandKeys(List<TableTreeNode<TItem>> tableTreeNodes)
+    private static bool? EqualityComparer(TItem a, TItem b)
     {
-        foreach (var node in tableTreeNodes)
+        bool? ret = null;
+        if (a is IEqualityComparer<TItem> comparer)
         {
-            if (node.IsExpand && node.Key != null)
-            {
-                KeySet.Add(node.Key);
-            }
-            CheckExpandKeys(node.Children);
+            ret = comparer.Equals(a, b);
         }
-    }
-
-    private async Task RestoreIsExpand(TableTreeNode<TItem> parentNode)
-    {
-        if (OnTreeExpand != null)
-        {
-            foreach (var item in (await OnTreeExpand(parentNode.Value)))
-            {
-                var node = new TableTreeNode<TItem>(item)
-                {
-                    HasChildren = CheckTreeChildren(item),
-                    Parent = parentNode
-                };
-                node.IsExpand = IsExpandRow(node);
-                if (node.IsExpand)
-                {
-                    await RestoreIsExpand(node);
-                }
-                parentNode.Children.Add(node);
-            }
-        }
+        return ret;
     }
 
     private async Task OnClickExtensionButton(TItem item, TableCellButtonArgs args)

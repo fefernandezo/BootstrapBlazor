@@ -93,7 +93,8 @@
     "Block4Intro": "Show labels are automatically turned on by default",
     "P8": "<b>Show label</b><div>The <code>ShowLabel</code> property of the <coe>EditorForm</coe> component is not set. If it is not set, it is equivalent to set to <code>true</code>. All components <b>display</b> tags</div>",
     "P9": "<b>Do not display labels</b><div>Set <code>ShowLabel='false'</code>, all form components in the component <b>Do not display</b> tags</div>",
-    "P10": "<b>Show labels</b><div>set class <code>form-inline</code> for the all labels within the component are prefixed</div>"
+    "P10": "<b>Show labels</b><div>set class <code>form-inline</code> for the all labels within the component are prefixed</div>",
+    "P11": "<b>Tooltip</b>"
   },
   "BootstrapBlazor.Shared.Pages.Install": {
     "InstallTitle": "Install",
@@ -846,7 +847,7 @@
     "Button7Text": "Dark",
     "Button8Text": "Highlight",
     "Button9Text": "Link",
-    "Button10Tetx": "Ultra-small",
+    "Button10Text": "ExtraSmall",
     "Button11Text": "Small",
     "Button12Text": "Button",
     "Button13Text": "Medium",
@@ -2051,6 +2052,7 @@
     "CollapsibleIntro": "Card body can collapse/expand by set <code>IsCollapsible</code> to true",
     "CollapsibleIntro2": "Set <code>Collapsed</code> value to <code>true</code> for default collapsed card body.",
     "CollapsibleBody": "Click card hader for collapse/expand card body",
+    "CollapsibleHeaderTemplate": "Header Template",
     "ShadowTitle": "Shadow effect",
     "ShadowIntro": "Enable shadow effect by set <code>IsShadow</code> to true",
     "ShadowBody": "Shadow effect sample",
@@ -2073,6 +2075,8 @@
     "BindIntro": "The calendar box automatically updates the text box when the time is selected",
     "ViewModeTitle": "Show by week",
     "ViewModeIntro": "By setting the property <code>CalendarViewMode.Week</code>",
+    "CellTemplateTitle": "Cell Template",
+    "CellTemplateIntro": "customer the cell template via <code>CellTemplate</code>",
     "AppTitle": "Practical applications",
     "AppIntro": "Curriculum",
     "AppText": "Currently, the <code>ChildContext</code> is temporarily rendered by the week component, and the data-related operating components in all cells are not encapsulated and will be refined later",
@@ -2874,7 +2878,9 @@
     "DetailRowTemplate3Title": "Use Tab component in detail row",
     "DetailRowTemplate3Intro": "Set the detail row content by setting the <code>DetailRowTemplate</code> template",
     "DetailRowTemplate3P": "In this example, the <code>Tab</code> component is used in the detail row to split the data into two <code>TabItem</code> contents again to demonstrate the data splitting again",
-    "TabItemText": "Associated Data"
+    "TabItemText": "Associated Data",
+    "DynamicTitle": "Detail row of dynamic data",
+    "DynamicIntro": "Data source is <code>DataTable</code>"
   },
   "BootstrapBlazor.Shared.Samples.Table.Tables": {
     "RefreshText": "Refresh",
@@ -2919,6 +2925,7 @@
     "TableFooterAttr": "Table Footer Template",
     "TableToolbarTemplateAttr": "Custom Button Template",
     "EditTemplateAttr": "Edit Pop-up Template",
+    "ExportButtonDropdownTemplateAttr": "The template of Export dropdown button item",
     "ShowAdvancedSearchAttr": "Show advanced search",
     "SearchTemplateAttr": "Advanced Search Template",
     "BeforeRowButtonTemplateAttr": "Table Row Button Template Before Button",
@@ -2961,6 +2968,7 @@
     "ShowSkeletonAttr": "Whether to display skeleton screen when first render",
     "ShowLoadingInFirstRenderAttr": "Whether to display the loading animation when first render",
     "ShowColumnListAttr": "Show columnshow/hide control buttons",
+    "OnColumnVisibleChangedAttr": "Trigger this callback when switch show/hide column in the list",
     "ShowEmptyAttr": "Show no data prompts",
     "ShowToastAfterSaveOrDeleteModelAttr": "Do you show a toast prompt box after a save/delete failure",
     "TreeIconAttr": "Small arrow for tree data rows",
@@ -3099,6 +3107,7 @@
     "VisibleP1": "<code>ShowColumnList</code> The default value is false, and if it is explicitly specified as true, the corresponding column adjustment button will appear in the toolbar",
     "VisibleP2": "<code>TableColumn</code> adds the <code>Visiable</code> property, its default value is true, this column will not be displayed when the display is set to false",
     "VisibleP3": "In this example, the <b>quantity</b> column is not displayed by setting <code>Visible</code>, and it can be displayed through the column control button",
+    "VisibleP4": "Trigger the <code>OnColumnVisibleChanged</code> callback when switch the column state <b>Show/Hide</b>",
     "AllowResizingTitle": "Allow column resizing",
     "AllowResizingIntro": "Set table columns to allow resizing by specifying <code>AllowResizing</code>",
     "AllowResizingP1": "Column resizing can only be done when the screen is too small and the scroll bar appears",

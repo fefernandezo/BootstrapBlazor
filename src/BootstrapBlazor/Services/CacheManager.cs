@@ -37,6 +37,7 @@ internal class CacheManager : ICacheManager
         IServiceProvider provider,
         IMemoryCache memoryCache)
     {
+        // 为了避免依赖导致的报错，构造函数避免使用其他服务
         Provider = provider;
         Cache = memoryCache;
         Instance = this;
@@ -196,39 +197,12 @@ internal class CacheManager : ICacheManager
     #endregion
 
     #region DisplayName
-    public static string? GetEnumDisplayName(Type type, string fieldName)
-    {
-        var t = Nullable.GetUnderlyingType(type) ?? type;
-        var cacheKey = $"{nameof(GetEnumDisplayName)}-{CultureInfo.CurrentUICulture.Name}-{t.FullName}-{fieldName}";
-        return Instance.GetOrCreate(cacheKey, entry =>
-        {
-            var dn = "";
-            // search in Localization
-            var localizer = CreateLocalizerByType(t);
-            var stringLocalizer = localizer?[fieldName];
-            if (stringLocalizer is { ResourceNotFound: false })
-            {
-                dn = stringLocalizer.Value;
-            }
-            else
-            {
-                var field = t.GetField(fieldName);
-                dn = field?.GetCustomAttribute<DisplayAttribute>(true)?.Name
-                    ?? field?.GetCustomAttribute<DescriptionAttribute>(true)?.Description;
-
-                // search in Localization again
-                if (!string.IsNullOrEmpty(dn))
-                {
-                    dn = GetLocalizerValueFromResourceManager(dn);
-                }
-            }
-
-            entry.SetDynamicAssemblyPolicy(type);
-
-            return dn;
-        });
-    }
-
+    /// <summary>
+    /// 获得类型属性的描述信息
+    /// </summary>
+    /// <param name="modelType"></param>
+    /// <param name="fieldName"></param>
+    /// <returns></returns>
     public static string GetDisplayName(Type modelType, string fieldName)
     {
         var cacheKey = $"{nameof(GetDisplayName)}-{CultureInfo.CurrentUICulture.Name}-{modelType.FullName}-{fieldName}";
@@ -242,6 +216,14 @@ internal class CacheManager : ICacheManager
             {
                 dn = stringLocalizer.Value;
             }
+            else if (modelType.IsEnum)
+            {
+                var info = modelType.GetFieldByName(fieldName);
+                if (info != null)
+                {
+                    dn = FindDisplayAttribute(info);
+                }
+            }
             else if (TryGetProperty(modelType, fieldName, out var propertyInfo))
             {
                 dn = FindDisplayAttribute(propertyInfo);
@@ -254,11 +236,11 @@ internal class CacheManager : ICacheManager
 
         return displayName ?? fieldName;
 
-        string? FindDisplayAttribute(PropertyInfo propertyInfo)
+        string? FindDisplayAttribute(MemberInfo memberInfo)
         {
             // 回退查找 Display 标签
-            var dn = propertyInfo.GetCustomAttribute<DisplayAttribute>(true)?.Name
-                ?? propertyInfo.GetCustomAttribute<DisplayNameAttribute>(true)?.DisplayName;
+            var dn = memberInfo.GetCustomAttribute<DisplayAttribute>(true)?.Name
+                ?? memberInfo.GetCustomAttribute<DisplayNameAttribute>(true)?.DisplayName;
 
             // 回退查找资源文件通过 dn 查找匹配项 用于支持 Validation
             if (!modelType.Assembly.IsDynamic && !string.IsNullOrEmpty(dn))
@@ -431,19 +413,21 @@ internal class CacheManager : ICacheManager
     /// <typeparam name="TModel"></typeparam>
     /// <typeparam name="TValue"></typeparam>
     /// <param name="model"></param>
+    /// <param name="customAttribute"></param>
     /// <returns></returns>
-    public static TValue GetKeyValue<TModel, TValue>(TModel model)
+    public static TValue GetKeyValue<TModel, TValue>(TModel model, Type? customAttribute = null)
     {
         if (model == null)
         {
             throw new ArgumentNullException(nameof(model));
         }
         var type = model.GetType();
-        var cacheKey = ($"Lambda-GetKeyValue-{type.FullName}", typeof(TModel));
+        var cacheKey = ($"Lambda-GetKeyValue-{type.FullName}-{customAttribute?.FullName}", typeof(TModel));
         var invoker = Instance.GetOrCreate(cacheKey, entry =>
         {
             entry.SetDynamicAssemblyPolicy(type);
-            return LambdaExtensions.GetKeyValue<TModel, TValue>(model).Compile();
+
+            return LambdaExtensions.GetKeyValue<TModel, TValue>(customAttribute).Compile();
         });
         return invoker(model);
     }

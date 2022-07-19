@@ -12,14 +12,6 @@ public partial class Table<TItem>
     protected string? CheckboxDisplayTextString => ShowCheckboxText ? CheckboxDisplayText : null;
 
     /// <summary>
-    /// 获得 Checkbox 样式表集合
-    /// </summary>
-    /// <returns></returns>
-    protected string? CheckboxColumnClass => CssBuilder.Default("table-th-checkbox")
-        .AddClass("show-text", ShowCheckboxText)
-        .Build();
-
-    /// <summary>
     /// 获得 thead 样式表集合
     /// </summary>
     protected string? HeaderClass => CssBuilder.Default()
@@ -33,8 +25,18 @@ public partial class Table<TItem>
     protected CheckboxState HeaderCheckState()
     {
         var ret = CheckboxState.UnChecked;
-        if (Rows.Any() && Rows.All(i => SelectedRows.Contains(i))) ret = CheckboxState.Checked;
-        else if (Rows.Any(i => SelectedRows.Contains(i))) ret = CheckboxState.Mixed;
+        if (Rows.Any() && Rows.All(row => SelectedRows.Any(i => ComparerItem(i, row))))
+        {
+            // 所有行被选中
+            // all rows are selected
+            ret = CheckboxState.Checked;
+        }
+        else if (Rows.Any(row => SelectedRows.Any(i => ComparerItem(i, row))))
+        {
+            // 任意一行被选中
+            // any one row is selected
+            ret = CheckboxState.Mixed;
+        }
         return ret;
     }
 
@@ -43,7 +45,7 @@ public partial class Table<TItem>
     /// </summary>
     /// <param name="item"></param>
     /// <returns></returns>
-    protected CheckboxState RowCheckState(TItem item) => SelectedRows.Contains(item) ? CheckboxState.Checked : CheckboxState.UnChecked;
+    protected CheckboxState RowCheckState(TItem item) => SelectedRows.Any(i => ComparerItem(i, item)) ? CheckboxState.Checked : CheckboxState.UnChecked;
 
     /// <summary>
     /// 获得/设置 是否为多选模式 默认为 false
@@ -98,8 +100,18 @@ public partial class Table<TItem>
     /// </summary>
     protected async Task OnCheck(CheckboxState state, TItem val)
     {
-        if (state == CheckboxState.Checked) SelectedRows.Add(val);
-        else SelectedRows.Remove(val);
+        if (state == CheckboxState.Checked)
+        {
+            SelectedRows.Add(val);
+        }
+        else
+        {
+            var item = SelectedRows.FirstOrDefault(i => ComparerItem(i, val));
+            if (item != null)
+            {
+                SelectedRows.Remove(item);
+            }
+        }
         await OnSelectedRowsChanged();
 
         // auto quit edit in cell mode
@@ -108,5 +120,19 @@ public partial class Table<TItem>
 
         // https://gitee.com/LongbowEnterprise/BootstrapBlazor/issues/I1UYQG
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// 获得/设置 列改变显示状态回调方法
+    /// </summary>
+    [Parameter]
+    public Func<string, bool, Task>? OnColumnVisibleChanged { get; set; }
+
+    private async Task OnToggleColumnVisible(string columnName, bool visible)
+    {
+        if (OnColumnVisibleChanged != null)
+        {
+            await OnColumnVisibleChanged(columnName, visible);
+        }
     }
 }

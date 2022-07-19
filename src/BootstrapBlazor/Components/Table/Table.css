@@ -39,14 +39,6 @@
         border-right-width: 1px;
     }
 
-.table-th-checkbox {
-    width: 36px;
-}
-
-    .table-th-checkbox.show-text {
-        width: 80px;
-    }
-
 .table-th-button {
     width: 130px;
 }
@@ -228,9 +220,14 @@
         border-bottom-left-radius: 4px;
     }
 
-.table-toolbar .dropdown-menu .dropdown-item span {
-    margin-left: 0.5rem;
+.table-toolbar .dropdown-menu {
+    max-height: 264px;
+    height: auto;
 }
+
+    .table-toolbar .dropdown-menu .dropdown-item span {
+        margin-left: 0.5rem;
+    }
 
 .table-toolbar .dropdown-item.hover,
 .table-toolbar .dropdown-item:hover {
@@ -618,6 +615,7 @@ form .table .table-cell > textarea {
         cursor: pointer;
         margin-left: .5rem;
         flex: 1;
+        padding: .5rem 0;
     }
 
 .table-search .collapsed .card-header {
@@ -652,11 +650,15 @@ form .table .table-cell > textarea {
     padding: 0;
 }
 
-.table-excel tbody .table-cell > .form-check {
+.table-excel > tbody .is-bar {
+    padding: .5rem 0;
+}
+
+.table-excel > tbody > tr > td > .table-cell > .form-check {
     padding: 6px 8px;
 }
 
-.table-excel tbody .table-cell .switch {
+.table-excel > tbody .table-cell .switch {
     padding: .375rem .1875rem;
     justify-content: center;
 }

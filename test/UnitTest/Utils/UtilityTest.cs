@@ -20,10 +20,14 @@ public class UtilityTest : BootstrapBlazorTestBase
         var foo = new Foo() { Id = 1 };
         var v = Utility.GetKeyValue<Foo, int>(foo);
         Assert.Equal(1, v);
+    }
 
-        object foo1 = new Foo() { Id = 2 };
-        v = Utility.GetKeyValue<object, int>(foo1);
-        Assert.Equal(2, v);
+    [Fact]
+    public void GetKeyValue_CustomKeyAttribute()
+    {
+        var foo = new Cat() { Id = 1 };
+        var v = Utility.GetKeyValue<Cat, int>(foo, typeof(CatKeyAttribute));
+        Assert.Equal(1, v);
     }
 
     [Fact]
@@ -516,5 +520,13 @@ public class UtilityTest : BootstrapBlazorTestBase
         public string? Name { get; set; }
 
         public string? PlaceHolder { get; set; }
+
+        [CatKey]
+        public int Id { get; set; }
+    }
+
+    private class CatKeyAttribute : Attribute
+    {
+
     }
 }

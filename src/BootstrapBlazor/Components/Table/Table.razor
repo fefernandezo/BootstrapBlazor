@@ -69,7 +69,7 @@
                                 <span class="d-none d-sm-inline-block">@ColumnButtonText</span>
                                 <span class="caret"></span>
                             </button>
-                            <div class="dropdown-menu dropdown-menu-right shadow">
+                            <div class="dropdown-menu dropdown-menu-right shadow scroll">
                                 @foreach (var item in Columns)
                                 {
                                     var poco = ColumnVisibles.FirstOrDefault(i => i.FieldName == item.GetFieldName());
@@ -77,7 +77,7 @@
                                     {
                                         <div class="dropdown-item">
                                             <Checkbox ShowAfterLabel="true" IsDisabled="@GetColumnsListState(item)"
-                                                  DisplayText="@item.GetDisplayName()" @bind-Value="@poco.Visible">
+                                                  DisplayText="@item.GetDisplayName()" @bind-Value="@poco.Visible" OnValueChanged="visible => OnToggleColumnVisible(poco.FieldName, visible)">
                                             </Checkbox>
                                         </div>
                                     }
@@ -94,10 +94,17 @@
                                 <span class="caret"></span>
                             </button>
                             <div class="dropdown-menu dropdown-menu-right shadow">
-                                <div class="dropdown-item" @onclick="@ExportAsync">
-                                    <i class="fa fa-file-excel-o"></i>
-                                    <span>MS-Excel</span>
-                                </div>
+                                @if(ExportButtonDropdownTemplate != null)
+                                {
+                                    @ExportButtonDropdownTemplate
+                                }
+                                else
+                                {
+                                    <div class="dropdown-item" @onclick="@ExportAsync">
+                                        <i class="fa fa-file-excel-o"></i>
+                                        <span>@ExportExcelDropdownItemText</span>
+                                    </div>
+                                }
                             </div>
                         </div>
                     }
@@ -313,7 +320,7 @@
                 @foreach (var item in Rows)
                 {
                     @RenderRow(item)
-                    if (!IsExcel && ShowDetails())
+                    if (ShowDetails())
                     {
                         <tr class="@GetDetailRowClassString(item)">
                             <td>&nbsp;</td>
@@ -440,7 +447,7 @@ RenderFragment<bool> RenderHeader => hasScroll =>
             }
             @if (IsMultipleSelect)
             {
-                <th class="@CheckboxColumnClass">
+                <th>
                     <div class="table-cell">
                         <Checkbox TValue="TItem" DisplayText="@CheckboxDisplayTextString" ShowAfterLabel="@ShowCheckboxText"
                                   State="@HeaderCheckState()" OnStateChanged="OnHeaderCheck"></Checkbox>
@@ -563,7 +570,7 @@ RenderFragment<TItem> RenderRow => item =>
 @<DynamicElement TagName="tr" class="@GetRowClassString(item)"
                  TriggerClick="@(ClickToSelect || OnClickRowCallback != null)" OnClick="() => ClickRow(item)"
                  TriggerDoubleClick="@(DoubleClickToEdit || OnDoubleClickRowCallback != null)" OnDoubleClick="() => DoubleClickRow(item)">
-    @if (!IsExcel && ShowDetails())
+    @if (ShowDetails())
     {
         <td>
             <div class="@GetDetailBarClassString(item)">
@@ -620,16 +627,31 @@ RenderFragment<TItem> RenderRow => item =>
             }
             <td colspan="@GetColspan(colspan)" class="@GetFixedCellClassString(col, cellClass)" style="@GetFixedCellStyleString(col)">
                 @{
-                    var showArrow = IsTree && index++ == 0;
-                    var triggerClick = showArrow && CheckTreeChildren(item);
-                }
-                <DynamicElement TagName="div" TriggerClick="@triggerClick"
-                                OnClick="@ToggleTreeRow(item)" StopPropagation="showArrow"
-                                class="@GetCellClassString(col, triggerClick, isInCell)" style="@GetCellStyleString(col)">
-                    @if (showArrow)
+                    var isFirstColOfTree = IsTree && index++ == 0;
+                    int degree = 0;
+                    bool isExpend = false;
+                    bool hasChildren = false;
+                    if (isFirstColOfTree)
                     {
-                        <div class="is-node" style="@GetTreeStyleString(item)">
-                            <i class="@GetTreeClassString(item)"></i>
+                        var treeItem = TreeRows.Find(item, out degree, ComparerItem);
+                        if(treeItem != null)
+                        {
+                            isExpend = treeItem.IsExpand;
+                            hasChildren = treeItem.HasChildren;
+                        }
+                    }
+                    bool hesTreeChildren = isFirstColOfTree && hasChildren;
+                }
+                <DynamicElement TagName="div" TriggerClick="@hesTreeChildren"
+                                OnClick="@ToggleTreeRow(item)" StopPropagation="hesTreeChildren"
+                                class="@GetCellClassString(col, hesTreeChildren, isInCell)" style="@GetCellStyleString(col)">
+                    @if (isFirstColOfTree)
+                    {
+                        <div class="is-node" style="@GetTreeStyleString(degree)">
+                        @if (hesTreeChildren)
+                        {
+                            <i class="@GetTreeClassString(isExpend)"></i>
+                        }
                         </div>
                     }
                     @if (IsExcel)
@@ -693,7 +715,7 @@ RenderFragment RenderPlaceHolderRow =>
 RenderFragment<(TItem Item, ItemChangedType ChangedType)> RenderEditForm => item =>
 @<tr class="is-editform">
     @{
-        var colspanCount = Columns.Count;
+        var colspanCount = GetColumnCount();
         if (IsMultipleSelect) colspanCount++;
         if (ShowLineNo) colspanCount++;
         if (ShowDetails()) colspanCount++;

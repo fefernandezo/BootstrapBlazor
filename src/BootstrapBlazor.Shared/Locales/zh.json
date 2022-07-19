@@ -93,7 +93,8 @@
     "Block4Intro": "默认自动开启显示标签",
     "P8": "<b>显示标签</b><div>未设置 <coe>EditorForm</coe> 组件的 <code>ShowLabel</code> 属性，未设置时等同于设置为 <code>true</code>，所有组件 <b>显示</b> 标签</div>",
     "P9": "<b>不显示标签</b><div>设置 <code>ShowLabel='false'</code>，组件内的所有表单组件 <b>不显示</b> 标签</div>",
-    "P10": "<b>显示标签</b><div>设置样式 <code>form-inline</code>，组件内的所有表单组件标签前置</div>"
+    "P10": "<b>显示标签</b><div>设置样式 <code>form-inline</code>，组件内的所有表单组件标签前置</div>",
+    "P11": "<b>标签提示</b>"
   },
   "BootstrapBlazor.Shared.Pages.Install": {
     "InstallTitle": "安装",
@@ -2055,6 +2056,7 @@
     "CollapsibleIntro": "通过设置 <code>IsCollapsible</code> 使 <code>Body</code> 可以伸缩",
     "CollapsibleIntro2": "通过设置 <code>Collapsed</code> 使 <code>Body</code> 默认收缩 参数默认值 <code>false</code> 展开",
     "CollapsibleBody": "点击 Header 收缩/展开",
+    "CollapsibleHeaderTemplate": "这里是模板",
     "ShadowTitle": "带有阴影的卡片",
     "ShadowIntro": "通过设置 <code>IsShadow</code> 开启阴影特效",
     "ShadowBody": "阴影特效示例",
@@ -2077,6 +2079,8 @@
     "BindIntro": "日历框选择时间时数据自动更新文本框",
     "ViewModeTitle": "按周展示",
     "ViewModeIntro": "通过设置属性 <code>CalendarViewMode.Week</code>",
+    "CellTemplateTitle": "单元格模板",
+    "CellTemplateIntro": "通过设置属性 <code>CellTemplate</code> 自定义单元格模板",
     "AppTitle": "实战应用",
     "AppIntro": "课堂表",
     "AppText": "目前按周内组件暂时为统一使用 <code>ChildContext</code> 来进行渲染，所有单元格内的数据相关操作组件均未进行封装，稍后完善",
@@ -2886,7 +2890,9 @@
     "DetailRowTemplate3Title": "明细行中使用 Tab 组件",
     "DetailRowTemplate3Intro": "通过设置 <code>DetailRowTemplate</code> 模板设置明细行内容",
     "DetailRowTemplate3P": "本例中明细行内使用 <code>Tab</code> 组件再次将数据分割成两个 <code>TabItem</code> 内容，进行再次数据拆分演示",
-    "TabItemText": "关联数据"
+    "TabItemText": "关联数据",
+    "DynamicTitle": "动态数据明细行",
+    "DynamicIntro": "数据源为 <code>DataTable</code>"
   },
   "BootstrapBlazor.Shared.Samples.Table.Tables": {
     "RefreshText": "刷新",
@@ -2931,6 +2937,7 @@
     "TableFooterAttr": "Table Footer 模板",
     "TableToolbarTemplateAttr": "自定义按钮模板",
     "EditTemplateAttr": "编辑弹窗模板",
+    "ExportButtonDropdownTemplateAttr": "导出按钮下拉框模板",
     "ShowAdvancedSearchAttr": "是否显示高级搜索",
     "SearchTemplateAttr": "高级搜索模板",
     "BeforeRowButtonTemplateAttr": "Table 行按钮模板 放置到按钮前",
@@ -2973,6 +2980,7 @@
     "ShowSkeletonAttr": "首次加载时是否显示骨架屏",
     "ShowLoadingInFirstRenderAttr": "首次加载时是否显示加载动画",
     "ShowColumnListAttr": "是否显示列显示/隐藏控制按钮",
+    "OnColumnVisibleChangedAttr": "改变列是否显示时触发此回调",
     "ShowEmptyAttr": "是否显示无数据提示",
     "ShowToastAfterSaveOrDeleteModelAttr": "保存/删除失败后是否显示 Toast 提示框",
     "TreeIconAttr": "树形数据行小箭头",
@@ -3112,6 +3120,7 @@
     "VisibleP1": "<code>ShowColumnList</code> 默认值为 false，显式指定为 true 后工具栏出现相应列调整按钮",
     "VisibleP2": "<code>TableColumn</code> 增加 <code>Visiable</code> 属性，其默认值为 true，显示设置为 false 时不显示此列",
     "VisibleP3": "此例中 <b>数量</b> 列通过设置 <code>Visible</code> 未显示，可以通过列控制按钮进行显示设置",
+    "VisibleP4": "更改 <b>列</b> 状态后触发 <code>OnColumnVisibleChanged</code> 回调委托",
     "AllowResizingTitle": "允许列调整",
     "AllowResizingIntro": "通过指定 <code>AllowResizing</code> 设置表格列允许调整宽度",
     "AllowResizingP1": "屏幕过小出现滚动条时才可以进行列调整",
