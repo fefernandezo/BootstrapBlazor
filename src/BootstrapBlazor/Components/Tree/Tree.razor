@@ -89,13 +89,6 @@ private RenderFragment<TreeItem> RenderTreeItem => item =>
                 }
             </div>
         </div>
-        <div class="tree-space" @ondragenter="() => OnDragSpaceEnter(item, false)" @ondragleave="() => { DragSpace = null; }"
-               @ondragleave:stopPropagation>
-              @if (DragSpace == item && !IsUp)
-              {
-                  <i class="fa fa-arrow-right"></i>
-              }
-                </div>
         @if (item.ShowLoading)
         {
             <ul class="tree-ul show">
@@ -106,5 +99,12 @@ private RenderFragment<TreeItem> RenderTreeItem => item =>
         {
             @RenderTreeNode(item)
         }
+        <div class="tree-space" @ondragenter="() => OnDragSpaceEnter(item, false)" @ondragleave="() => { DragSpace = null; }"
+             @ondragleave:stopPropagation>
+            @if (DragSpace == item && !IsUp)
+            {
+                <i class="fa fa-arrow-right"></i>
+            }
+            </div>
     </li>;
 }
