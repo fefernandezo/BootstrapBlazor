@@ -447,6 +447,8 @@ public partial class Table<TItem> : BootstrapComponentBase, IDisposable, ITable 
 
         OnInitLocalization();
 
+        TItemComparer = new TItemComparer<TItem>(ComparerItem);
+
         Interop = new JSInterop<Table<TItem>>(JSRuntime);
 
         // 设置 OnSort 回调方法
@@ -699,8 +701,10 @@ public partial class Table<TItem> : BootstrapComponentBase, IDisposable, ITable 
     /// <summary>
     /// OnQueryAsync 查询结果数据集合
     /// </summary>
+    [NotNull]
     private IEnumerable<TItem>? QueryItems { get; set; }
 
+    [NotNull]
     private List<TItem>? RowsCache { get; set; }
 
     /// <summary>
@@ -710,8 +714,8 @@ public partial class Table<TItem> : BootstrapComponentBase, IDisposable, ITable 
     {
         get
         {
-            RowsCache ??= Items?.ToList() ?? QueryItems?.ToList() ?? new List<TItem>();
-            return IsTree ? TreeRows.GetAllRows() : RowsCache;
+            RowsCache ??= IsTree ? TreeRows.GetAllRows() : (Items ?? QueryItems).ToList();
+            return RowsCache;
         }
     }
 
@@ -928,7 +932,7 @@ public partial class Table<TItem> : BootstrapComponentBase, IDisposable, ITable 
             PageItems = Math.Min(request.Count, TotalCount - request.StartIndex);
         }
         await QueryData();
-        return new ItemsProviderResult<TItem>(QueryItems ?? Enumerable.Empty<TItem>(), TotalCount);
+        return new ItemsProviderResult<TItem>(QueryItems, TotalCount);
     }
 
     private Func<Task> TriggerDoubleClickCell(ITableColumn col, TItem item) => async () =>

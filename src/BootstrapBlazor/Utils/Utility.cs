@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 // Website: https://www.blazor.zone or https://argozhang.github.io/
 
+using BootstrapBlazor.Localization.Json;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.Localization;
 using System.ComponentModel;
@@ -30,7 +31,7 @@ public static class Utility
     /// <param name="modelType">模型类型</param>
     /// <param name="fieldName">字段名称</param>
     /// <returns></returns>
-    public static string GetDisplayName(Type modelType, string fieldName) => CacheManager.GetDisplayName(modelType, fieldName);
+    public static string GetDisplayName(Type modelType, string fieldName) => CacheManager.GetDisplayName(Nullable.GetUnderlyingType(modelType) ?? modelType, fieldName);
 
     /// <summary>
     /// 获取资源文件中 NullableBoolItemsAttribute 标签名称方法
@@ -38,7 +39,7 @@ public static class Utility
     /// <param name="model">模型实例</param>
     /// <param name="fieldName">字段名称</param>
     /// <returns></returns>
-    public static IEnumerable<SelectedItem> GetNullableBoolItems(object model, string fieldName) => GetNullableBoolItems(model.GetType(), fieldName);
+    public static List<SelectedItem> GetNullableBoolItems(object model, string fieldName) => GetNullableBoolItems(model.GetType(), fieldName);
 
     /// <summary>
     /// 获取资源文件中 NullableBoolItemsAttribute 标签名称方法
@@ -46,7 +47,7 @@ public static class Utility
     /// <param name="modelType">模型实例</param>
     /// <param name="fieldName">字段名称</param>
     /// <returns></returns>
-    public static IEnumerable<SelectedItem> GetNullableBoolItems(Type modelType, string fieldName) => CacheManager.GetNullableBoolItems(modelType, fieldName);
+    public static List<SelectedItem> GetNullableBoolItems(Type modelType, string fieldName) => CacheManager.GetNullableBoolItems(modelType, fieldName);
 
     /// <summary>
     /// 获得 指定模型标记 <see cref="KeyAttribute"/> 的属性值
@@ -114,6 +115,24 @@ public static class Utility
     /// </summary>
     /// <returns></returns>
     public static Func<IEnumerable<T>, List<string>, IEnumerable<T>> GetSortListFunc<T>() => CacheManager.GetSortListFunc<T>();
+
+    /// <summary>
+    /// 通过指定程序集获取所有本地化信息键值集合
+    /// </summary>
+    /// <param name="option">JsonLocalizationOptions 实例</param>
+    /// <param name="assembly">Assembly 程序集实例</param>
+    /// <param name="typeName">类名称</param>
+    /// <param name="cultureName">cultureName 未空时使用 CultureInfo.CurrentUICulture.Name</param>
+    /// <param name="forceLoad">默认 false 使用缓存值 设置 true 时内部强制重新加载</param>
+    /// <returns></returns>
+    public static IEnumerable<LocalizedString> GetJsonStringByTypeName(JsonLocalizationOptions option, Assembly assembly, string typeName, string? cultureName = null, bool forceLoad = false) => CacheManager.GetJsonStringByTypeName(option, assembly, typeName, cultureName, forceLoad) ?? Enumerable.Empty<LocalizedString>();
+
+    /// <summary>
+    /// 通过指定程序集与类型获得 IStringLocalizer 实例
+    /// </summary>
+    /// <param name="assembly"></param>
+    /// <param name="typeName"></param>
+    public static IStringLocalizer? GetStringLocalizerFromService(Assembly assembly, string typeName) => CacheManager.GetStringLocalizerFromService(assembly, typeName);
 
     /// <summary>
     /// 获取 PlaceHolder 方法

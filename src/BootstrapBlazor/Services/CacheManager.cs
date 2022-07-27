@@ -142,7 +142,9 @@ internal class CacheManager : ICacheManager
     /// <param name="assembly"></param>
     /// <param name="typeName"></param>
     /// <returns></returns>
-    public static IStringLocalizer? GetStringLocalizerFromService(Assembly assembly, string typeName) => Instance.GetOrCreate($"{nameof(GetStringLocalizerFromService)}-{CultureInfo.CurrentUICulture.Name}-{assembly.GetName().Name}-{typeName}", entry =>
+    public static IStringLocalizer? GetStringLocalizerFromService(Assembly assembly, string typeName) => assembly.IsDynamic
+        ? null
+        : Instance.GetOrCreate($"{nameof(GetStringLocalizerFromService)}-{CultureInfo.CurrentUICulture.Name}-{assembly.GetName().Name}-{typeName}", entry =>
     {
         IStringLocalizer? ret = null;
         var factories = Instance.Provider.GetServices<IStringLocalizerFactory>();
@@ -158,12 +160,6 @@ internal class CacheManager : ICacheManager
                 }
             }
         }
-
-        if (assembly.IsDynamic)
-        {
-            entry.SetSlidingExpirationForDynamicAssembly();
-        }
-
         return ret;
     });
 
@@ -172,28 +168,48 @@ internal class CacheManager : ICacheManager
     /// </summary>
     /// <param name="assembly"></param>
     /// <param name="typeName"></param>
-    /// <param name="includeParentCultures"></param>
     /// <returns></returns>
-    public static IEnumerable<LocalizedString>? GetAllStringsByCulture(Assembly assembly, string typeName, bool includeParentCultures = true) => assembly.IsDynamic
-        ? null
-        : Instance.GetOrCreate($"{nameof(GetAllStringsByCulture)}-{CultureInfo.CurrentUICulture.Name}-{assembly.GetName().Name}-{typeName}",
-            entry =>
-            {
-                // 获得程序集中的资源文件 stream
-                var sections = GetJsonLocalizationOption().GetJsonStringFromAssembly(assembly);
-                var v = sections
-                    .FirstOrDefault(kv => typeName.Equals(kv.Key, StringComparison.OrdinalIgnoreCase))?
-                    .GetChildren()
-                    .SelectMany(kv => new[] { new LocalizedString(kv.Key, kv.Value) });
-                return v;
-            });
+    public static IEnumerable<LocalizedString>? GetAllStringsByTypeName(Assembly assembly, string typeName) => GetJsonStringByTypeName(GetJsonLocalizationOption(), assembly, typeName, CultureInfo.CurrentUICulture.Name);
 
     /// <summary>
-    /// 
+    /// 通过指定程序集获取所有本地化信息键值集合
+    /// </summary>
+    /// <param name="option">JsonLocalizationOptions 实例</param>
+    /// <param name="assembly">Assembly 程序集实例</param>
+    /// <param name="typeName">类型名称</param>
+    /// <param name="cultureName">cultureName 未空时使用 CultureInfo.CurrentUICulture.Name</param>
+    /// <param name="forceLoad">默认 false 使用缓存值 设置 true 时内部强制重新加载</param>
+    /// <returns></returns>
+    public static IEnumerable<LocalizedString>? GetJsonStringByTypeName(JsonLocalizationOptions option, Assembly assembly, string typeName, string? cultureName = null, bool forceLoad = false)
+    {
+        return assembly.IsDynamic ? null : GetJsonStringByTypeName();
+
+        IEnumerable<LocalizedString>? GetJsonStringByTypeName()
+        {
+            cultureName ??= CultureInfo.CurrentUICulture.Name;
+            var key = $"{nameof(GetJsonStringByTypeName)}-{assembly.GetName().Name}-{cultureName}";
+            var typeKey = $"{key}-{typeName}";
+            if (forceLoad)
+            {
+                Instance.Cache.Remove(key);
+                Instance.Cache.Remove(typeKey);
+            }
+            return Instance.GetOrCreate(typeKey, entry =>
+            {
+                var sections = Instance.GetOrCreate(key, entry => option.GetJsonStringFromAssembly(assembly, cultureName));
+                return sections.FirstOrDefault(kv => typeName.Equals(kv.Key, StringComparison.OrdinalIgnoreCase))?
+                    .GetChildren()
+                    .SelectMany(kv => new[] { new LocalizedString(kv.Key, kv.Value) });
+            });
+        }
+    }
+
+    /// <summary>
+    /// 通过 ILocalizationResolve 接口实现类获得本地化键值集合
     /// </summary>
     /// <param name="includeParentCultures"></param>
     /// <returns></returns>
-    public static IEnumerable<KeyValuePair<string, string>> GetAllStringsFromResolve(bool includeParentCultures = true) => Instance.GetOrCreate($"{nameof(GetAllStringsFromResolve)}-{CultureInfo.CurrentUICulture.Name}", entry => Instance.Provider.GetRequiredService<ILocalizationResolve>().GetAllStringsByCulture(includeParentCultures));
+    public static IEnumerable<LocalizedString> GetAllStringsFromResolve(bool includeParentCultures = true) => Instance.GetOrCreate($"{nameof(GetAllStringsFromResolve)}-{CultureInfo.CurrentUICulture.Name}", entry => Instance.Provider.GetRequiredService<ILocalizationResolve>().GetAllStringsByCulture(includeParentCultures));
     #endregion
 
     #region DisplayName
@@ -240,7 +256,8 @@ internal class CacheManager : ICacheManager
         {
             // 回退查找 Display 标签
             var dn = memberInfo.GetCustomAttribute<DisplayAttribute>(true)?.Name
-                ?? memberInfo.GetCustomAttribute<DisplayNameAttribute>(true)?.DisplayName;
+                ?? memberInfo.GetCustomAttribute<DisplayNameAttribute>(true)?.DisplayName
+                ?? memberInfo.GetCustomAttribute<DescriptionAttribute>(true)?.Description;
 
             // 回退查找资源文件通过 dn 查找匹配项 用于支持 Validation
             if (!modelType.Assembly.IsDynamic && !string.IsNullOrEmpty(dn))
@@ -251,7 +268,7 @@ internal class CacheManager : ICacheManager
         }
     }
 
-    public static IEnumerable<SelectedItem> GetNullableBoolItems(Type modelType, string fieldName)
+    public static List<SelectedItem> GetNullableBoolItems(Type modelType, string fieldName)
     {
         var cacheKey = $"{nameof(GetNullableBoolItems)}-{CultureInfo.CurrentUICulture.Name}-{modelType.FullName}-{fieldName}";
         return Instance.GetOrCreate(cacheKey, entry =>
@@ -309,13 +326,21 @@ internal class CacheManager : ICacheManager
         if (options.ResourceManagerStringLocalizerType != null)
         {
             var localizer = CreateLocalizerByType(options.ResourceManagerStringLocalizerType);
-            var stringLocalizer = localizer?[key];
-            if (stringLocalizer is { ResourceNotFound: false })
-            {
-                dn = stringLocalizer.Value;
-            }
+            dn = GetValueByKey(localizer);
         }
         return dn ?? key;
+
+        [ExcludeFromCodeCoverage]
+        string? GetValueByKey(IStringLocalizer? l)
+        {
+            string? val = null;
+            var stringLocalizer = l?[key];
+            if (stringLocalizer is { ResourceNotFound: false })
+            {
+                val = stringLocalizer.Value;
+            }
+            return val;
+        }
     }
     #endregion
 
@@ -471,7 +496,6 @@ internal class CacheManager : ICacheManager
 
             entry.SetDynamicAssemblyPolicy(type);
             return Expression.Lambda<Func<object, IEnumerable<string?>>>(body, para_exp).Compile();
-
         });
     }
 
@@ -496,7 +520,7 @@ internal class CacheManager : ICacheManager
             var exp_p2 = Expression.Parameter(typeof(string));
             var exp_p3 = Expression.Parameter(typeof(IFormatProvider));
             Expression? body = null;
-            if (type.IsSubclassOf(typeof(IFormattable)))
+            if (type.IsAssignableTo(typeof(IFormattable)))
             {
                 // 通过 IFormattable 接口格式化
                 var mi = type.GetMethod("ToString", new Type[] { typeof(string), typeof(IFormatProvider) });
@@ -507,11 +531,11 @@ internal class CacheManager : ICacheManager
             }
             else
             {
-                // 通过 ToString(string format) 方法格式化
-                var mi = type.GetMethod("ToString", new Type[] { typeof(string) });
+                // 通过 ToString() 方法格式化
+                var mi = type.GetMethod("ToString");
                 if (mi != null)
                 {
-                    body = Expression.Call(Expression.Convert(exp_p1, type), mi, exp_p2);
+                    body = Expression.Call(Expression.Convert(exp_p1, type), mi);
                 }
             }
             return body == null
@@ -544,7 +568,7 @@ internal class CacheManager : ICacheManager
             else
             {
                 // 通过 ToString() 方法格式化
-                mi = type.GetMethod("ToString", new Type[] { typeof(string) });
+                mi = type.GetMethod("ToString");
                 body = Expression.Call(Expression.Convert(exp_p1, type), mi!);
             }
             return Expression.Lambda<Func<object, IFormatProvider?, string>>(body, exp_p1, exp_p2);

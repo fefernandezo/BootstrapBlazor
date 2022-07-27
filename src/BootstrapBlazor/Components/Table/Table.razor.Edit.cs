@@ -308,9 +308,6 @@ public partial class Table<TItem>
                 SelectedRows.Add(val);
             }
             await OnSelectedRowsChanged();
-
-            // 更新 设置选中状态
-            StateHasChanged();
         }
 
         if (OnClickRowCallback != null)
@@ -324,6 +321,10 @@ public partial class Table<TItem>
         if (SelectedRowsChanged.HasDelegate)
         {
             await SelectedRowsChanged.InvokeAsync(SelectedRows);
+        }
+        else
+        {
+            StateHasChanged();
         }
     }
 
@@ -356,15 +357,10 @@ public partial class Table<TItem>
             TableRenderMode.Table => TableRenderMode.CardView,
             _ => TableRenderMode.Table
         };
-
         StateHasChanged();
     }
 
-    /// <summary>
-    /// 查询按钮调用此方法
-    /// </summary>
-    /// <returns></returns>
-    public async Task QueryAsync()
+    private async Task QueryAsync(bool shouldRender)
     {
         if (ScrollMode == ScrollMode.Virtual && VirtualizeElement != null)
         {
@@ -376,8 +372,18 @@ public partial class Table<TItem>
             await QueryData();
             await InternalToggleLoading(false);
         }
-        StateHasChanged();
+
+        if (shouldRender)
+        {
+            StateHasChanged();
+        }
     }
+
+    /// <summary>
+    /// 查询按钮调用此方法
+    /// </summary>
+    /// <returns></returns>
+    public Task QueryAsync() => QueryAsync(true);
 
     /// <summary>
     /// 显示/隐藏 Loading 遮罩
@@ -418,14 +424,11 @@ public partial class Table<TItem>
             {
                 // 动态数据
                 QueryItems = DynamicContext.GetItems().Cast<TItem>();
+                TotalCount = QueryItems.Count();
+                RowsCache = null;
 
                 // 设置默认选中行
-                SelectedRows.Clear();
-                if (DynamicContext.OnGetSelectedRows != null)
-                {
-                    SelectedRows.AddRange(DynamicContext.OnGetSelectedRows().Cast<TItem>());
-                }
-                TotalCount = QueryItems.Count();
+                ResetSelectedRows(QueryItems);
             }
             else
             {
@@ -434,8 +437,11 @@ public partial class Table<TItem>
         }
         else
         {
+            ResetSelectedRows(Items);
             RowsCache = null;
         }
+
+        void ResetSelectedRows(IEnumerable<TItem> items) => SelectedRows = items.Where(i => SelectedRows.Any(row => ComparerItem(i, row))).ToList();
 
         async Task OnQuery()
         {
@@ -467,39 +473,26 @@ public partial class Table<TItem>
                 queryOption.SearchModel = CustomerSearchModel;
             }
 
-            RowsCache = null;
-            Items = null;
-
             queryData = await InternalOnQueryAsync(queryOption);
-            QueryItems = queryData.Items;
             TotalCount = queryData.TotalCount;
             IsAdvanceSearch = queryData.IsAdvanceSearch;
+            QueryItems = queryData.Items ?? Enumerable.Empty<TItem>();
 
             // 处理选中行逻辑
-            ProcessSelectedRows();
+            ResetSelectedRows(QueryItems);
 
             // 分页情况下内部不做处理防止页码错乱
-            ProcessData(queryData, queryOption);
+            ProcessData();
 
             if (IsTree)
             {
                 await ProcessTreeData();
             }
 
-            void ProcessSelectedRows()
-            {
-                var rows = new List<TItem>();
-                foreach (var row in SelectedRows)
-                {
-                    if (QueryItems.Any(i => ComparerItem(i, row)))
-                    {
-                        rows.Add(row);
-                    }
-                }
-                SelectedRows = rows;
-            }
+            // 更新数据后清楚缓存防止新数据不显示
+            RowsCache = null;
 
-            void ProcessData(QueryData<TItem> queryData, QueryPageOptions queryOption)
+            void ProcessData()
             {
                 var filtered = queryData.IsFiltered;
                 var sorted = queryData.IsSorted;
@@ -564,18 +557,34 @@ public partial class Table<TItem>
                 {
                     foreach (var node in nodes)
                     {
-                        if (ExpandedRows.Any(i => ComparerItem(i, node.Value)))
+                        if (node.IsExpand)
                         {
-                            // 原来是展开状态
-                            node.IsExpand = true;
-                            if (!node.Items.Any())
+                            // 已收缩
+                            if (CollapsedRows.Contains(node.Value, TItemComparer))
                             {
-                                await GetChildrenRow(node, node.Value);
+                                node.IsExpand = false;
+                            }
+                            else if (!ExpandedRows.Contains(node.Value, TItemComparer))
+                            {
+                                // 状态为 展开
+                                ExpandedRows.Add(node.Value);
                             }
                         }
                         else
                         {
-                            ExpandedRows.RemoveAll(i => ComparerItem(i, node.Value));
+                            if (ExpandedRows.Any(i => ComparerItem(i, node.Value)))
+                            {
+                                // 原来是展开状态
+                                node.IsExpand = true;
+                                if (!node.Items.Any())
+                                {
+                                    await GetChildrenRow(node, node.Value);
+                                }
+                            }
+                            else
+                            {
+                                ExpandedRows.RemoveAll(i => ComparerItem(i, node.Value));
+                            }
                         }
                         if (node.Items.Any())
                         {
@@ -595,8 +604,7 @@ public partial class Table<TItem>
     /// <returns></returns>
     protected bool ComparerItem(TItem a, TItem b) => ModelEqualityComparer?.Invoke(a, b)
         ?? DynamicContext?.EqualityComparer?.Invoke((IDynamicObject)a, (IDynamicObject)b)
-        ?? Utility.GetKeyValue<TItem, object>(a, CustomKeyAttribute)
-            ?.Equals(Utility.GetKeyValue<TItem, object>(b, CustomKeyAttribute))
+        ?? Utility.GetKeyValue<TItem, object>(a, CustomKeyAttribute)?.Equals(Utility.GetKeyValue<TItem, object>(b, CustomKeyAttribute))
         ?? EqualityComparer(a, b)
         ?? a.Equals(b);
 

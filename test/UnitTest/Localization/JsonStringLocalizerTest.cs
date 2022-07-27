@@ -251,7 +251,7 @@ public class JsonStringLocalizerTest : BootstrapBlazorTestBase
 
     internal class MockLocalizationResolve : ILocalizationResolve
     {
-        public IEnumerable<KeyValuePair<string, string>> GetAllStringsByCulture(bool includeParentCultures) => new KeyValuePair<string, string>[]
+        public IEnumerable<LocalizedString> GetAllStringsByCulture(bool includeParentCultures) => new LocalizedString[]
         {
             new("test-localizer-name", "name"),
             new("test-localizer-age", "age")
@@ -269,7 +269,10 @@ public class JsonStringLocalizerFactoryTest
 
         var sc = new ServiceCollection();
         sc.AddConfiguration();
-        sc.AddBootstrapBlazor();
+        sc.AddBootstrapBlazor(op =>
+        {
+            op.IgnoreLocalizerMissing = true;
+        });
 
         var provider = sc.BuildServiceProvider();
         var localizer = provider.GetRequiredService<IStringLocalizer<Foo>>();

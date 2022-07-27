@@ -2,12 +2,15 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 // Website: https://www.blazor.zone or https://argozhang.github.io/
 
+using BootstrapBlazor.Localization.Json;
 using BootstrapBlazor.Shared;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.Data;
+using System.Globalization;
 using System.Reflection;
 
 namespace UnitTest.Utils;
@@ -149,14 +152,28 @@ public class UtilityTest : BootstrapBlazorTestBase
     {
         var dummy = new Dummy();
         var items = Utility.GetNullableBoolItems(dummy, nameof(Dummy.Complete));
-        Assert.Equal("请选择 ...", items.ElementAt(0).Text);
-        Assert.Equal("True", items.ElementAt(1).Text);
-        Assert.Equal("False", items.ElementAt(2).Text);
+        Assert.Equal("请选择 ...", items[0].Text);
+        Assert.Equal("True", items[1].Text);
+        Assert.Equal("False", items[2].Text);
 
         items = Utility.GetNullableBoolItems(typeof(Dummy), nameof(Dummy.Complete));
-        Assert.Equal("请选择 ...", items.ElementAt(0).Text);
-        Assert.Equal("True", items.ElementAt(1).Text);
-        Assert.Equal("False", items.ElementAt(2).Text);
+        Assert.Equal("请选择 ...", items[0].Text);
+        Assert.Equal("True", items[1].Text);
+        Assert.Equal("False", items[2].Text);
+
+        // 动态类型
+        var dynamicType = EmitHelper.CreateTypeByName("test_type", new MockTableColumn[] { new("Name", typeof(string)) });
+        items = Utility.GetNullableBoolItems(dynamicType!, "Name");
+        Assert.Equal("请选择 ...", items[0].Text);
+        Assert.Equal("True", items[1].Text);
+        Assert.Equal("False", items[2].Text);
+
+        // 读取资源文件中的配置值
+        var cat = new Cat();
+        items = Utility.GetNullableBoolItems(cat, nameof(cat.Name));
+        Assert.Equal("test-Name-NullValue", items[0].Text);
+        Assert.Equal("True", items[1].Text);
+        Assert.Equal("False", items[2].Text);
     }
 
     [Fact]
@@ -257,7 +274,7 @@ public class UtilityTest : BootstrapBlazorTestBase
         Assert.Equal("学历", dn);
 
         // 静态类
-        dn = Utility.GetDisplayName(new Foo() { Education = EnumEducation.Middel }, nameof(Foo.Education));
+        dn = Utility.GetDisplayName(new Foo() { Education = EnumEducation.Middle }, nameof(Foo.Education));
         Assert.Equal("学历", dn);
 
         // 动态类
@@ -265,8 +282,21 @@ public class UtilityTest : BootstrapBlazorTestBase
         Assert.Equal("Education", dn);
 
         var pi = context.GetItems().First().GetType().GetProperties().FirstOrDefault(i => i.CustomAttributes.Any(a => a.AttributeType == typeof(DescriptionAttribute)));
-        var attr = pi?.GetCustomAttribute<DescriptionAttribute>();
-        Assert.Equal("Test-Desc", attr?.Description);
+        var attr = pi!.GetCustomAttribute<DescriptionAttribute>();
+        Assert.Equal("Test-Desc", attr!.Description);
+
+        // 类 Desc
+        dn = Utility.GetDisplayName(new Cat(), nameof(Cat.Name));
+        Assert.Equal("Cat-Desc", dn);
+
+        dn = Utility.GetDisplayName(typeof(TestEnum), nameof(TestEnum.Name));
+        Assert.Equal("Test-Enum-Name", dn);
+
+        dn = Utility.GetDisplayName(typeof(TestEnum), nameof(TestEnum.Address));
+        Assert.Equal("Test-Enum-Address", dn);
+
+        dn = Utility.GetDisplayName(typeof(Nullable<TestEnum>), nameof(TestEnum.Name));
+        Assert.Equal("Test-Enum-Name", dn);
     }
 
     [Fact]
@@ -277,6 +307,21 @@ public class UtilityTest : BootstrapBlazorTestBase
 
         // 内部走 null 逻辑
         _ = context.SetValue(model);
+    }
+
+    [Fact]
+    public void GetJsonStringFromAssembly_Ok()
+    {
+        var option = Context.Services.GetRequiredService<IOptions<JsonLocalizationOptions>>().Value;
+        var sections = Utility.GetJsonStringByTypeName(option, this.GetType().Assembly, "UnitTest.Utils.UtilityTest+Cat", null, true);
+
+        // 加载 UnitTest.Locals.en-US.json
+        // 加载 BootstrapBlazor.Locals.en.json
+        Assert.NotEmpty(sections);
+
+        // dynamic
+        var dynamicType = EmitHelper.CreateTypeByName("test_type", new MockTableColumn[] { new("Name", typeof(string)) });
+        Utility.GetJsonStringByTypeName(option, dynamicType!.Assembly, "Test");
     }
 
     private class MockDynamicObject : IDynamicObject
@@ -361,7 +406,7 @@ public class UtilityTest : BootstrapBlazorTestBase
         Assert.False(condition);
     }
 
-    private class Dummy
+    private class Dummy : IFormattable
     {
         public string? Name { get; set; }
 
@@ -370,6 +415,13 @@ public class UtilityTest : BootstrapBlazorTestBase
         public string Field = "";
 
         public TimeSpan TimeSpan { get; set; }
+
+        public int Id { get; set; }
+
+        public string ToString(string? format, IFormatProvider? formatProvider)
+        {
+            return Id.ToString(format, formatProvider);
+        }
     }
 
     private class MockClone : ICloneable
@@ -452,6 +504,14 @@ public class UtilityTest : BootstrapBlazorTestBase
         var val = new double[] { 1.1, 2.0, 3.1 };
         var actual1 = Utility.ConvertValueToString(val);
         Assert.Equal("1.1,2,3.1", actual1);
+
+        var items = new List<SelectedItem>() { new SelectedItem("Test1", "Test1"), new SelectedItem("Test2", "Test2") };
+        var actual2 = Utility.ConvertValueToString(items);
+        Assert.Equal("Test1,Test2", actual2);
+
+        var objs = new List<object?>() { 1, null, "Test" };
+        var actual3 = Utility.ConvertValueToString(objs);
+        Assert.Equal("1,,Test", actual3);
     }
 
     [Fact]
@@ -502,6 +562,85 @@ public class UtilityTest : BootstrapBlazorTestBase
         Assert.Null(localizer);
     }
 
+    [Fact]
+    public void GetStringLocalizerFromService_Ok()
+    {
+        // 动态程序集
+        var dynamicType = EmitHelper.CreateTypeByName("test-Type", new MockTableColumn[] { new("Name", typeof(string)) });
+        var localizer = Utility.GetStringLocalizerFromService(dynamicType!.Assembly, dynamicType.Name);
+        Assert.Null(localizer);
+    }
+
+    [Fact]
+    public void GetJsonStringConfig_Ok()
+    {
+        var option = new JsonLocalizationOptions
+        {
+            AdditionalJsonFiles = new string[]
+            {
+                "zh-CN.json"
+            }
+        };
+        var localizedStrings = Utility.GetJsonStringByTypeName(option, this.GetType().Assembly, "BootstrapBlazor.Shared.Foo", "zh-CN", true);
+        Assert.Equal("Test-Name", localizedStrings.First(i => i.Name == "Name").Value);
+    }
+
+    [Fact]
+    public void IgnoreLocalizerMissing_Ok()
+    {
+        var option = new JsonLocalizationOptions
+        {
+            IgnoreLocalizerMissing = true
+        };
+        Assert.True(option.IgnoreLocalizerMissing);
+    }
+
+    [Fact]
+    public void GetJsonStringConfig_Fallback()
+    {
+        // 回落默认语言为 en 测试用例为 zh 找不到资源文件
+        var option = new JsonLocalizationOptions();
+        var configs = Utility.GetJsonStringByTypeName(option, this.GetType().Assembly, "BootstrapBlazor.Shared.Foo", "it-it", true);
+        Assert.Empty(configs);
+    }
+
+    [Fact]
+    public void GetJsonStringConfig_Culture()
+    {
+        // 回落默认语音为 en 测试用例为 en-US 找不到资源文件
+        var option = new JsonLocalizationOptions();
+        var configs = Utility.GetJsonStringByTypeName(option, this.GetType().Assembly, "BootstrapBlazor.Shared.Foo", "en-US", true);
+        Assert.NotEmpty(configs);
+
+        var pi = option.GetType().GetProperty("EnableFallbackCulture", BindingFlags.NonPublic | BindingFlags.Instance);
+        pi!.SetValue(option, false);
+        configs = Utility.GetJsonStringByTypeName(option, this.GetType().Assembly, "BootstrapBlazor.Shared.Foo", "en", true);
+
+        // 禁用回落机制
+        // UniTest 未提供 en 资源文件 断言为 Empty
+        Assert.Empty(configs);
+    }
+
+    [Fact]
+    public void Format_Ok()
+    {
+        var actual = Utility.Format(new Cat() { Name = "test" }, CultureInfo.CurrentCulture);
+        Assert.Equal("test", actual);
+    }
+
+    [Fact]
+    public void Format_Format()
+    {
+        var actual = Utility.Format(1, "D2");
+        Assert.Equal("01", actual);
+
+        actual = Utility.Format(new Cat(), "D2");
+        Assert.Equal("", actual);
+
+        actual = Utility.Format(new Dummy() { Id = 1 }, "D2");
+        Assert.Equal("01", actual);
+    }
+
     private class MockNullDisplayNameColumn : MockTableColumn, IEditorItem
     {
         public MockNullDisplayNameColumn(string fieldName, Type propertyType) : base(fieldName, propertyType)
@@ -517,12 +656,24 @@ public class UtilityTest : BootstrapBlazorTestBase
         public Foo Foo { get; set; } = new Foo();
 
         [PlaceHolder("Test-PlaceHolder")]
+        [Description("Cat-Desc")]
         public string? Name { get; set; }
 
         public string? PlaceHolder { get; set; }
 
         [CatKey]
         public int Id { get; set; }
+
+        public override string ToString() => Name ?? "";
+    }
+
+    private enum TestEnum
+    {
+        [Description("Test-Enum-Name")]
+        Name,
+
+        [Display(Name = "Test-Enum-Address")]
+        Address
     }
 
     private class CatKeyAttribute : Attribute
