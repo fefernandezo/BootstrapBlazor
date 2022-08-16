@@ -397,27 +397,28 @@ public static class Utility
         // Lookup
         if (lookup != null && item.Items == null)
         {
-            builder.AddAttribute(11, nameof(Select<SelectedItem>.Items), lookup.Clone());
-            builder.AddAttribute(12, nameof(Select<SelectedItem>.StringComparison), item.LookupStringComparison);
+            builder.AddAttribute(11, nameof(Select<SelectedItem>.ShowSearch), true);
+            builder.AddAttribute(12, nameof(Select<SelectedItem>.Items), lookup.Clone());
+            builder.AddAttribute(13, nameof(Select<SelectedItem>.StringComparison), item.LookupStringComparison);
         }
 
         // 增加非枚举类,手动设定 ComponentType 为 Select 并且 Data 有值 自动生成下拉框
         if (item.Items != null && item.ComponentType == typeof(Select<>).MakeGenericType(fieldType))
         {
-            builder.AddAttribute(13, nameof(Select<SelectedItem>.Items), item.Items.Clone());
+            builder.AddAttribute(14, nameof(Select<SelectedItem>.Items), item.Items.Clone());
         }
 
         // 设置 SkipValidate 参数
         if (IsValidatableComponent(componentType))
         {
-            builder.AddAttribute(14, nameof(IEditorItem.SkipValidate), item.SkipValidate);
+            builder.AddAttribute(15, nameof(IEditorItem.SkipValidate), item.SkipValidate);
         }
 
-        builder.AddMultipleAttributes(15, CreateMultipleAttributes(fieldType, model, fieldName, item));
+        builder.AddMultipleAttributes(16, CreateMultipleAttributes(fieldType, model, fieldName, item));
 
         if (item.ComponentParameters != null)
         {
-            builder.AddMultipleAttributes(16, item.ComponentParameters);
+            builder.AddMultipleAttributes(17, item.ComponentParameters);
         }
         builder.CloseComponent();
     }
@@ -660,28 +661,6 @@ public static class Utility
         return ret;
     }
     #endregion
-
-    /// <summary>
-    /// 树状数据层次化方法
-    /// </summary>
-    /// <param name="items">数据集合</param>
-    /// <param name="parentId">父级节点</param>
-    public static IEnumerable<TreeItem> CascadingTree(this IEnumerable<TreeItem> items, string? parentId = null) => items.Where(i => i.ParentId == parentId).Select(i =>
-    {
-        i.Items = CascadingTree(items, i.Id).ToList();
-        return i;
-    });
-
-    /// <summary>
-    /// 菜单树状数据层次化方法
-    /// </summary>
-    /// <param name="items">数据集合</param>
-    /// <param name="parentId">父级节点</param>
-    public static IEnumerable<MenuItem> CascadingMenu(this IEnumerable<MenuItem> items, string? parentId = null) => items.Where(i => i.ParentId == parentId).Select(i =>
-    {
-        i.Items = CascadingMenu(items, i.Id).ToList();
-        return i;
-    });
 
     /// <summary>
     /// 

@@ -48,6 +48,17 @@ class TreeDataFoo
         };
 
         // 算法获取属性结构数据
-        return items.CascadingTree().ToList();
+        return CascadingTree(items).ToList();
     }
+
+    /// <summary>
+    /// 树状数据层次化方法
+    /// </summary>
+    /// <param name="items">数据集合</param>
+    /// <param name="parentId">父级节点</param>
+    public static IEnumerable<TreeItem> CascadingTree(IEnumerable<TreeItem> items, string? parentId = null) => items.Where(i => i.ParentId == parentId).Select(i =>
+    {
+        i.Items = CascadingTree(items, i.Id).ToList();
+        return i;
+    });
 }

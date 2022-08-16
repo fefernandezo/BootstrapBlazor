@@ -234,6 +234,12 @@ public sealed partial class NavMenu
             },
             new()
             {
+                Text = Localizer["MauiBlazor"],
+                Url = "install-maui",
+                Match = NavLinkMatch.All
+            },
+            new()
+            {
                 Text = Localizer["Breakpoints"],
                 Url = "breakpoints"
             },
@@ -302,6 +308,7 @@ public sealed partial class NavMenu
             },
             new()
             {
+                IsUpdate = true,
                 Text = Localizer["DateTimePicker"],
                 Url = "datetimepickers"
             },
@@ -600,6 +607,12 @@ public sealed partial class NavMenu
             },
             new()
             {
+                Text = Localizer["Tree"],
+                Url = "treeviews"
+            },
+            new()
+            {
+                IsNew = true,
                 Text = Localizer["Transition"],
                 Url = "transitions"
             }
