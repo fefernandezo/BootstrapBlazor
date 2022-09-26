@@ -272,11 +272,14 @@ public class TableTest : TableTestBase
     [Fact]
     public async Task ShowAdvancedSearch_Ok()
     {
+        var added = false;
         var localizer = Context.Services.GetRequiredService<IStringLocalizer<Foo>>();
         var cut = Context.RenderComponent<BootstrapBlazorRoot>(pb =>
         {
             pb.AddChildContent<Table<Foo>>(pb =>
             {
+                pb.Add(a => a.IsTracking, true);
+                pb.Add(a => a.EditMode, EditMode.Popup);
                 pb.Add(a => a.ShowToolbar, true);
                 pb.Add(a => a.ShowSearch, true);
                 pb.Add(a => a.ShowSearchText, false);
@@ -290,6 +293,14 @@ public class TableTest : TableTestBase
                 pb.Add(a => a.ShowAdvancedSearch, true);
                 pb.Add(a => a.ShowUnsetGroupItemsOnTop, true);
                 pb.Add(a => a.Items, Foo.GenerateFoo(localizer, 1));
+                pb.Add(a => a.OnAddAsync, () =>
+                {
+                    added = true;
+                    return Task.FromResult(new Foo() { Id = 999, Address = "Test_Address", Complete = true, Count = 10, DateTime = DateTime.Now, Education = EnumEducation.Middle, Hobby = new string[] { "Test_Hobby" }, Name = "Test_Name" });
+                });
+                pb.Add(a => a.ItemsChanged, EventCallback.Factory.Create<IEnumerable<Foo>>(this, rows =>
+                {
+                }));
                 pb.Add(a => a.TableColumns, foo => builder =>
                 {
                     builder.OpenComponent<TableColumn<Foo, string>>(0);
@@ -303,6 +314,16 @@ public class TableTest : TableTestBase
 
         var searchButton = cut.Find(".fa-magnifying-glass-plus");
         await cut.InvokeAsync(() => searchButton.Click());
+        var closeButton = cut.Find(".btn-close");
+        await cut.InvokeAsync(() => closeButton.Click());
+
+        // test add button
+        var button = cut.Find(".btn-toolbar");
+        await cut.InvokeAsync(() => button.Children[0].Click());
+        var buttons = cut.Find(".form-footer");
+        var submitbutton = buttons.Children[0];
+        await cut.InvokeAsync(() => submitbutton.Click());
+        Assert.True(added);
     }
 
     [Fact]
@@ -3871,53 +3892,6 @@ public class TableTest : TableTestBase
         var button = cut.FindAll("tbody tr button");
         await cut.InvokeAsync(() => button[0].Click());
         Assert.True(edited);
-    }
-
-    [Fact]
-    public async Task OnEditAsync_PopUp_Ok()
-    {
-        var localizer = Context.Services.GetRequiredService<IStringLocalizer<Foo>>();
-        var items = Foo.GenerateFoo(localizer, 2);
-        var added = false;
-        var cut = Context.RenderComponent<BootstrapBlazorRoot>(pb =>
-        {
-            pb.AddChildContent<Table<Foo>>(pb =>
-            {
-                pb.Add(a => a.ItemsChanged, EventCallback.Factory.Create<IEnumerable<Foo>>(this, rows =>
-                {
-                }));
-                pb.Add(a => a.RenderMode, TableRenderMode.Table);
-                pb.Add(a => a.Items, items);
-                pb.Add(a => a.IsTracking, true);
-                pb.Add(a => a.ShowToolbar, true);
-                pb.Add(a => a.ShowExtendButtons, true);
-                pb.Add(a => a.EditMode, EditMode.Popup);
-                pb.Add(a => a.OnAddAsync, () =>
-                {
-                    added = true;
-                    return Task.FromResult(new Foo() { Id = 999, Address = "Test_Address", Complete = true, Count = 10, DateTime = DateTime.Now, Education = EnumEducation.Middle, Hobby = new string[] { "Test_Hobby" }, Name = "Test_Name" });
-                });
-                pb.Add(a => a.OnEditAsync, foo =>
-                {
-                    return Task.CompletedTask;
-                });
-                pb.Add(a => a.TableColumns, foo => builder =>
-                {
-                    builder.OpenComponent<TableColumn<Foo, string>>(0);
-                    builder.AddAttribute(1, "Field", "Name");
-                    builder.AddAttribute(2, "FieldExpression", Utility.GenerateValueExpression(foo, "Name", typeof(string)));
-                    builder.CloseComponent();
-                });
-            });
-        });
-
-        // test edit button
-        var button = cut.Find(".btn-toolbar");
-        await cut.InvokeAsync(() => button.Children[0].Click());
-        var buttons = cut.Find(".form-footer");
-        var submitbutton = buttons.Children[0];
-        await cut.InvokeAsync(() => submitbutton.Click());
-        Assert.True(added);
     }
 
     [Fact]
