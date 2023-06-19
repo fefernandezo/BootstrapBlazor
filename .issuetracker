@@ -14,6 +14,6 @@
   regex = "[C|c]ommit:([^\\s]*)"
   url = "https://gitee.com/Longbow/BootstrapBlazor/commit/$1"
 
-[issuetracker "Gitee-PR"]
+[issuetracker "Github-PR"]
   regex = "!([\\d]+)"
-  url = "https://gitee.com/Longbow/BootstrapBlazor/pulls/$1"
+  url = "https://github.com/dotnetcore/BootstrapBlazor/pull/$1"
