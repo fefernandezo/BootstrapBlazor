@@ -53,7 +53,8 @@ public partial class FloatingUI
         builder.AddAttribute(1, "class", "bb-float-dropdown");
         if (Element != null)
         {
-            builder.AddContent(2, Element.ChildContent);
+            builder.AddAttribute(2, "id", Element.Id);
+            builder.AddContent(3, Element.ChildContent);
         }
         builder.CloseElement();
     };

@@ -1,0 +1,12 @@
+﻿@page "/floating-uis"
+@inject IStringLocalizer<FloatingUIs> Localizer
+
+<h3>@Localizer["FloatingUIsTitle"]</h3>
+
+<h4>@Localizer["FloatingUIsSubtitle"]</h4>
+
+<DemoBlock Title="@Localizer["FloatingUINormalTitle"]"
+           Introduction="@Localizer["FloatingUINormalIntro"]"
+           Name="Normal"
+           Demo="typeof(Demos.FloatingUIs.FloatingUINormal)">
+</DemoBlock>

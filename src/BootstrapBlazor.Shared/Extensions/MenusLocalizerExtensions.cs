@@ -1029,6 +1029,12 @@ internal static class MenusLocalizerExtensions
                 },
                 new()
                 {
+                    IsNew = true,
+                    Text = Localizer["FloatingUI"],
+                    Url = "floating-uis"
+                },
+                new()
+                {
                     Text = Localizer["Layout"],
                     Url = "layouts"
                 },

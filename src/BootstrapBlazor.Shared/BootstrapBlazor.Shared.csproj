@@ -49,6 +49,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BootstrapBlazor\BootstrapBlazor.csproj" />
+    <ProjectReference Include="..\Extensions\Components\BootstrapBlazor.FloatingUI\BootstrapBlazor.FloatingUI.csproj" />
   </ItemGroup>
 
   <ItemGroup>
