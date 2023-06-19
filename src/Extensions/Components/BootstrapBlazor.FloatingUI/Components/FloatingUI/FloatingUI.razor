@@ -1,7 +1,12 @@
 ﻿@namespace BootstrapBlazor.Components
+@inherits IdComponentBase
 
-<h3>FloatingUI</h3>
-
-@code {
-
-}
+<div @attributes="@AdditionalAttributes" class="@ClassString" id="@Id">
+    <CascadingValue Value="this" IsFixed="true">
+        @ChildContent
+    </CascadingValue>
+    @if (IsRendered)
+    {
+        @RenderFloatingElement()
+    }
+</div>
