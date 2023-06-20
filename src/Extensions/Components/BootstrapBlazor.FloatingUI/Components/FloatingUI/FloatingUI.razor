@@ -1,7 +1,8 @@
 ﻿@namespace BootstrapBlazor.Components
-@inherits IdComponentBase
+@inherits BootstrapModuleComponentBase
+@attribute [JSModuleAutoLoader("./_content/BootstrapBlazor.FloatingUI/Components/FloatingUI/FloatingUI.razor.js")]
 
-<div @attributes="@AdditionalAttributes" class="@ClassString" id="@Id">
+<div @attributes="@AdditionalAttributes" class="@ClassString" id="@Id" aria-describedby="@FloatingElementId">
     <CascadingValue Value="this" IsFixed="true">
         @ChildContent
     </CascadingValue>

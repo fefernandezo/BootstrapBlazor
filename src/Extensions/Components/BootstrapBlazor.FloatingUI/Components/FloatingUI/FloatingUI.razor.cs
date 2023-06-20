@@ -26,6 +26,8 @@ public partial class FloatingUI
 
     private bool IsRendered { get; set; }
 
+    private string? FloatingElementId => Element?.Id;
+
     /// <summary>
     /// <inheritdoc/>
     /// </summary>
@@ -50,7 +52,7 @@ public partial class FloatingUI
     private RenderFragment RenderFloatingElement() => builder =>
     {
         builder.OpenElement(0, "div");
-        builder.AddAttribute(1, "class", "bb-float-dropdown");
+        builder.AddAttribute(1, "class", "bb-float-dropdown d-none");
         if (Element != null)
         {
             builder.AddAttribute(2, "id", Element.Id);
