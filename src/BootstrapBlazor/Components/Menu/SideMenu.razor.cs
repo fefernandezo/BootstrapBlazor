@@ -7,11 +7,12 @@ using Microsoft.Extensions.Localization;
 namespace BootstrapBlazor.Components;
 
 /// <summary>
-/// 
+/// SideMenu 组件
 /// </summary>
 public partial class SideMenu
 {
     private string? GetMenuClassString => CssBuilder.Default("submenu")
+        .AddClass("show", MenuItem is { IsCollapsed: false })
         .AddClassFromAttributes(AdditionalAttributes)
         .Build();
 
@@ -52,6 +53,9 @@ public partial class SideMenu
     [CascadingParameter]
     [NotNull]
     private Menu? Parent { get; set; }
+
+    [CascadingParameter]
+    private MenuItem? MenuItem { get; set; }
 
     [Inject]
     [NotNull]
