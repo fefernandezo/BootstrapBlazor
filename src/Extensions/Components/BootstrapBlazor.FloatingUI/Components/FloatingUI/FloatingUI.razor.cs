@@ -6,11 +6,20 @@ using Microsoft.AspNetCore.Components;
 
 namespace BootstrapBlazor.Components;
 
+/// <summary>
+/// 
+/// </summary>
 public partial class FloatingUI
 {
     private string? ClassString => CssBuilder.Default("bb-float-ui")
         .AddClassFromAttributes(AdditionalAttributes)
         .Build();
+
+    /// <summary>
+    /// 获得/设置 触发方法 默认 hover
+    /// </summary>
+    [Parameter]
+    public string? Trigger { get; set; }
 
     /// <summary>
     /// 获得/设置 RenderFragment 实例
@@ -31,6 +40,16 @@ public partial class FloatingUI
     /// <summary>
     /// <inheritdoc/>
     /// </summary>
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+
+        Trigger ??= "hover";
+    }
+
+    /// <summary>
+    /// <inheritdoc/>
+    /// </summary>
     /// <param name="firstRender"></param>
     protected override void OnAfterRender(bool firstRender)
     {
@@ -42,6 +61,12 @@ public partial class FloatingUI
             StateHasChanged();
         }
     }
+
+    /// <summary>
+    /// <inheritdoc/>
+    /// </summary>
+    /// <returns></returns>
+    protected override Task InvokeInitAsync() => InvokeVoidAsync("init", Id, new { Trigger });
 
     /// <summary>
     /// 子组件实例化悬浮组件方法
