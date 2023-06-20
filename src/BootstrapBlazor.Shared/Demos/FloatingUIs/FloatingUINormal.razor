@@ -1,11 +1,11 @@
 ﻿@inject IStringLocalizer<FloatingUINormal> Localizer
 
-<FloatingUI>
+<FloatingUI Trigger="hover">
     <div class="float-ui">Test</div>
     <FloatingElement>
-        <div class="float-menu">
-            <div>Item 1</div>
-            <div>Item 2</div>
+        <div class="dropdown-menu shadow show">
+            <div class="dropdown-item">Item 1</div>
+            <div class="dropdown-item">Item 2</div>
         </div>
     </FloatingElement>
 </FloatingUI>
